@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type BadgeVariant = 'primary' | 'secondary' | 'accent' | 'neutral' | 'success' | 'warning';
+export type BadgeVariant = 'primary' | 'secondary' | 'accent' | 'neutral' | 'success' | 'warning' | 'terracotta';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -16,22 +16,23 @@ export const Badge: React.FC<BadgeProps> = ({
   size = 'md',
 }) => {
   const variantClasses: Record<BadgeVariant, string> = {
-    primary: 'bg-primary/10 text-primary border-primary/20',
-    secondary: 'bg-secondary/15 text-secondary border-secondary/25',
-    accent: 'bg-accent/10 text-accent border-accent/20',
-    neutral: 'bg-sand-200 text-muted border-border',
-    success: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200',
+    primary: 'bg-terracotta/20 text-terracotta border-terracotta/40',
+    secondary: 'bg-secondary/20 text-secondary border-secondary/40',
+    accent: 'bg-accent/20 text-accent border-accent/40',
+    terracotta: 'bg-terracotta/20 text-terracotta border-terracotta/40',
+    neutral: 'bg-[#132334] text-[#E8DCC9] border-[#1E3246]',
+    success: 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60',
+    warning: 'bg-amber-950/60 text-amber-300 border-amber-800/60',
   };
 
   const sizeClasses = {
-    sm: 'text-xs px-2 py-0.5',
+    sm: 'text-[11px] px-2 py-0.5',
     md: 'text-xs px-2.5 py-1',
   };
 
   return (
     <span
-      className={`inline-flex items-center font-medium rounded-full border ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center font-medium rounded-md border ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
     >
       {children}
     </span>

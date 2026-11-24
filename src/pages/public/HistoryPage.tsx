@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { History as HistoryIcon, Calendar, Bookmark, Landmark } from 'lucide-react';
+import { History as HistoryIcon, Bookmark, Landmark } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
-import { VillageHistory } from '../../types/schema';
+import { VillageHistory, HistoryTranslation } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
-import { EmptyState } from '../../components/common/EmptyState';
 
 export const HistoryPage: React.FC = () => {
   const { locale, t } = useLanguage();
@@ -31,18 +30,18 @@ export const HistoryPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-14">
       
       {/* Header */}
       <div className="max-w-3xl space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-sand-200 text-xs font-semibold text-primary uppercase tracking-wider">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#132334] border border-[#1E3246] text-xs font-semibold text-terracotta uppercase tracking-wider">
           <HistoryIcon className="w-3.5 h-3.5" />
-          <span>{t('Arsip Kronologis Desa', 'Chronological Village Archives')}</span>
+          <span>{t('Ruang Kuratorial & Linimasa', 'Curatorial Space & Timeline')}</span>
         </div>
-        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-text">
+        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#F8F5EF]">
           {t('Linimasa Sejarah Peradaban Desa Pringgasela Selatan', 'Historical Chronicle of South Pringgasela')}
         </h1>
-        <p className="text-muted text-base leading-relaxed">
+        <p className="text-[#E8DCC9]/80 text-sm sm:text-base leading-relaxed">
           {t(
             'Menelusuri jejak perintis pemukiman agraris, tumbuhnya sentra kerajinan tenun gedogan di lereng Rinjani, hingga pemekaran dan pelestarian identitas budaya Pringgasela Selatan.',
             'Tracing the roots of agrarian pioneers, the flourishing of backstrap weaving on Mount Rinjani’s foothills, to the official establishment of South Pringgasela.'
@@ -56,74 +55,67 @@ export const HistoryPage: React.FC = () => {
       ) : error ? (
         <ErrorState message={error} onRetry={fetchHistory} />
       ) : eras.length > 0 ? (
-        <div className="relative border-l-2 border-primary/30 ml-4 sm:ml-8 pl-6 sm:pl-10 space-y-12">
-          {eras.map((era, index) => {
-            const trans =
-              era.translations?.find((tr) => tr.locale === locale) ||
-              era.translations?.find((tr) => tr.locale === 'id') ||
+        <div className="relative border-l-2 border-terracotta/40 ml-4 sm:ml-8 pl-6 sm:pl-10 space-y-12">
+          {eras.map((era) => {
+            const trans: HistoryTranslation | undefined =
+              era.translations?.find((tr: HistoryTranslation) => tr.locale === locale) ||
+              era.translations?.find((tr: HistoryTranslation) => tr.locale === 'id') ||
               era.translations?.[0];
-
-            const title = trans?.eraTitle || era.slug;
-            const narrative = trans?.narrative || '';
-            const keyFigures = trans?.keyFigures || '';
-            const legacy = trans?.legacyToday || '';
 
             return (
               <div key={era.$id} className="relative group">
-                
-                {/* Node bullet */}
-                <div className="absolute -left-[31px] sm:-left-[47px] top-1.5 w-6 h-6 rounded-full bg-surface border-4 border-primary flex items-center justify-center shadow-xs group-hover:scale-125 transition-transform" />
+                {/* Node on vertical timeline */}
+                <div className="absolute -left-[31px] sm:-left-[47px] top-1.5 w-4 h-4 rounded-full bg-terracotta border-4 border-[#0B1623] shadow-md group-hover:scale-125 transition-transform" />
 
-                {/* Card Container */}
-                <article className="bg-surface rounded-2xl border border-border p-6 sm:p-8 space-y-5 shadow-xs hover:shadow-md transition-shadow">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
-                    <span className="flex items-center gap-2 font-mono text-sm font-bold text-accent bg-accent/10 px-3 py-1 rounded-md">
-                      <Calendar className="w-4 h-4" />
-                      {era.startYear ? `${era.startYear} ${era.endYear ? `– ${era.endYear}` : '– Kini'}` : 'Era Leluhur'}
+                <div className="bg-[#0E1A27] rounded-lg border border-[#1E3246] p-6 sm:p-8 space-y-5 hover:border-terracotta/70 transition-all shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E3246]/60 pb-3">
+                    <span className="font-mono text-xs sm:text-sm font-bold text-terracotta tracking-wider">
+                      {era.startYear} – {era.endYear ? era.endYear : t('Sekarang', 'Present')}
                     </span>
-                    <span className="text-xs uppercase tracking-wider text-muted font-medium">
-                      {t(`Fase ${index + 1}`, `Phase ${index + 1}`)}
+                    <span className="text-[11px] text-[#8D9CAE] uppercase tracking-wider font-semibold">
+                      {t('Babak Sejarah', 'Historical Era')}
                     </span>
                   </div>
 
-                  <h3 className="font-serif text-2xl sm:text-3xl font-bold text-text">
-                    {title}
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#F8F5EF]">
+                    {trans?.eraTitle || era.slug}
                   </h3>
 
-                  <div className="text-base text-text/90 leading-relaxed font-sans whitespace-pre-line">
-                    {narrative}
+                  <p className="text-sm text-[#E8DCC9]/85 font-sans leading-relaxed whitespace-pre-line">
+                    {trans?.narrative}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-[#1E3246]/60 text-xs text-[#E8DCC9]/75">
+                    {trans?.keyFigures && (
+                      <div className="space-y-1">
+                        <span className="text-[#8D9CAE] uppercase tracking-wider block font-semibold flex items-center gap-1.5">
+                          <Bookmark className="w-3.5 h-3.5 text-terracotta" />
+                          {t('Tokoh Kunci & Sesepuh', 'Key Figures & Elders')}
+                        </span>
+                        <p className="font-medium text-[#F8F5EF]">{trans.keyFigures}</p>
+                      </div>
+                    )}
+                    {trans?.legacyToday && (
+                      <div className="space-y-1">
+                        <span className="text-[#8D9CAE] uppercase tracking-wider block font-semibold flex items-center gap-1.5">
+                          <Landmark className="w-3.5 h-3.5 text-terracotta" />
+                          {t('Warisan Budaya Hidup', 'Living Legacy Today')}
+                        </span>
+                        <p className="font-medium text-[#F8F5EF]">{trans.legacyToday}</p>
+                      </div>
+                    )}
                   </div>
-
-                  {keyFigures && (
-                    <div className="bg-sand-50 p-4 rounded-xl border border-border/60 text-xs space-y-1">
-                      <span className="font-semibold text-secondary flex items-center gap-1.5">
-                        <Landmark className="w-3.5 h-3.5" />
-                        {t('Tokoh Kunci & Pemimpin Adat', 'Key Pioneers & Customary Elders')}:
-                      </span>
-                      <p className="text-text/80">{keyFigures}</p>
-                    </div>
-                  )}
-
-                  {legacy && (
-                    <div className="bg-sand-100 p-4 rounded-xl border border-border/60 text-xs space-y-1">
-                      <span className="font-semibold text-primary flex items-center gap-1.5">
-                        <Bookmark className="w-3.5 h-3.5" />
-                        {t('Warisan Abadi Masa Kini', 'Lasting Legacy Today')}:
-                      </span>
-                      <p className="text-text/80">{legacy}</p>
-                    </div>
-                  )}
-                </article>
-
+                </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <EmptyState
-          title={t('Arsip Sejarah Belum Tersedia', 'History Timeline Empty')}
-          message={t('Belum ada babak sejarah yang dipublikasikan.', 'No historical eras published.')}
-        />
+        <div className="p-8 rounded-lg bg-[#0E1A27] border border-[#1E3246] text-center">
+          <p className="text-sm text-[#E8DCC9]/80 font-serif">
+            {t('Catatan sejarah desa sedang disempurnakan...', 'Village history annals are being compiled...')}
+          </p>
+        </div>
       )}
 
     </div>

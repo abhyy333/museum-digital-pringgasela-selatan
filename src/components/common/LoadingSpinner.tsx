@@ -13,9 +13,9 @@ export const LoadingSpinner: React.FC<{ message?: string; size?: 'sm' | 'md' | '
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
       <div
-        className={`${sizeClasses[size]} border-sand-300 border-t-primary rounded-full animate-spin mb-4`}
+        className={`${sizeClasses[size]} border-[#1E3246] border-t-terracotta rounded-full animate-spin mb-4`}
       />
-      {message && <p className="text-sm font-medium text-muted tracking-wide">{message}</p>}
+      {message && <p className="text-sm font-medium text-[#E8DCC9]/80 tracking-wide font-sans">{message}</p>}
     </div>
   );
 };

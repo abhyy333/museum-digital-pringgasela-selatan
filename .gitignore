@@ -34,3 +34,4 @@ dist-ssr/
 
 # TypeScript cache
 *.tsbuildinfo
+.vercel

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Landmark, Compass, Users, MapPin, Mail, Clock, ShieldCheck } from 'lucide-react';
+import { Landmark, Compass, Users, MapPin, Mail, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
 
@@ -18,14 +18,14 @@ export const AboutPage: React.FC = () => {
       
       {/* Header */}
       <div className="max-w-3xl space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-sand-200 text-xs font-semibold text-primary uppercase tracking-wider">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#132334] border border-[#1E3246] text-xs font-semibold text-terracotta uppercase tracking-wider">
           <Landmark className="w-3.5 h-3.5" />
           <span>{t('Pusat Preservasi Warisan Sasak', 'Sasak Cultural Preservation Center')}</span>
         </div>
-        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-text">
+        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#F8F5EF]">
           {t('Tentang Museum Digital Pringgasela Selatan', 'About South Pringgasela Digital Museum')}
         </h1>
-        <p className="text-muted text-base leading-relaxed">
+        <p className="text-[#E8DCC9]/80 text-sm sm:text-base leading-relaxed">
           {settings.museum_description_id ||
             t(
               'Sebuah inisiatif preservasi digital komprehensif untuk melindungi, mendokumentasikan, dan memperluas literasi kebudayaan tenun tradisional, Dzikir Saman, dan peradaban luhur Sasak Pringgasela Selatan.',
@@ -36,14 +36,14 @@ export const AboutPage: React.FC = () => {
 
       {/* Vision & Mission Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-surface rounded-2xl border border-border p-8 space-y-4 shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+        <div className="bg-[#0E1A27] rounded-lg border border-[#1E3246] p-8 space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-lg bg-terracotta/15 text-terracotta flex items-center justify-center">
             <Compass className="w-6 h-6" />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-text">
+          <h2 className="font-serif text-2xl font-bold text-[#F8F5EF]">
             {t('Visi Kebudayaan', 'Cultural Vision')}
           </h2>
-          <p className="text-sm text-text/80 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#E8DCC9]/80 leading-relaxed font-sans">
             {t(
               'Menjadikan warisan budaya Pringgasela Selatan sebagai lentera peradaban yang berdaya tahan, dikenal di kancah nasional dan internasional, serta memberikan kebanggaan dan kesejahteraan berkelanjutan bagi perajin tenun dan generasi muda desa.',
               'To preserve South Pringgasela heritage as a resilient cultural beacon recognized globally, instilling pride and sustainable well-being for traditional artisans.'
@@ -51,71 +51,48 @@ export const AboutPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-surface rounded-2xl border border-border p-8 space-y-4 shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
+        <div className="bg-[#0E1A27] rounded-lg border border-[#1E3246] p-8 space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-lg bg-terracotta/15 text-terracotta flex items-center justify-center">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-text">
+          <h2 className="font-serif text-2xl font-bold text-[#F8F5EF]">
             {t('Misi Preservasi', 'Preservation Mission')}
           </h2>
-          <ul className="text-sm text-text/80 leading-relaxed space-y-2 list-disc list-inside">
-            <li>{t('Mendokumentasikan secara ilmiah dan visual motif tenun kuno.', 'Scholarly documentation of ancient weaving motifs.')}</li>
-            <li>{t('Melindungi hak kekayaan intelektual komunal warga Sasak.', 'Safeguarding communal intellectual property rights.')}</li>
-            <li>{t('Mendorong regenerasi penenun muda alat gedogan.', 'Fostering younger generations in loom craftsmanship.')}</li>
-            <li>{t('Menyediakan akses arsip sejarah desa terbuka dan kredibel.', 'Providing open, credible village historical archives.')}</li>
+          <ul className="text-xs sm:text-sm text-[#E8DCC9]/80 space-y-2 list-disc list-inside leading-relaxed font-sans">
+            <li>{t('Mendokumentasikan seluruh motif tenun kuno dan cerita lisan penenun.', 'Documenting ancient weaving motifs and oral histories.')}</li>
+            <li>{t('Melindungi hak cipta intelektual dan ulayat motif Sasak Pringgasela.', 'Protecting intellectual and customary rights of Pringgasela motifs.')}</li>
+            <li>{t('Mempromosikan pewarnaan alami berbasis keanekaragaman hayati lereng Rinjani.', 'Promoting botanical dyeing based on Mount Rinjani biodiversity.')}</li>
+            <li>{t('Menyediakan repositori ilmiah terbuka dwibahasa bagi periset dunia.', 'Providing an open bilingual scholarly repository for global researchers.')}</li>
           </ul>
         </div>
       </div>
 
-      {/* Collaborative Stewardship Note */}
-      <section className="bg-sand-100 rounded-3xl border border-border p-8 sm:p-12 space-y-6">
-        <div className="flex items-center gap-2 text-xs font-semibold text-secondary uppercase tracking-wider">
-          <Users className="w-4 h-4" />
-          <span>{t('Kolaborasi & Tata Kelola', 'Collaborative Stewardship')}</span>
+      {/* Village Contact & Cultural Stewardship Card */}
+      <div className="bg-[#132334] rounded-lg border border-[#1E3246] p-8 sm:p-10 space-y-6">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-terracotta font-bold">
+          <Users className="w-4 h-4 text-terracotta" />
+          <span>{t('Tata Kelola & Koordinat Desa', 'Governance & Coordinates')}</span>
         </div>
-        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
-          {t('Menjaga Warisan Secara Komunal', 'Communal Custodianship')}
-        </h2>
-        <p className="text-sm sm:text-base text-text/80 leading-relaxed">
+        <h3 className="font-serif text-2xl font-bold text-[#F8F5EF]">
+          {t('Pemerintah Desa Pringgasela Selatan', 'South Pringgasela Village Governance')}
+        </h3>
+        <p className="text-xs sm:text-sm text-[#E8DCC9]/80 leading-relaxed font-sans">
           {t(
-            'Museum Digital Pringgasela Selatan dikelola secara kolaboratif oleh Pemerintah Desa Pringgasela Selatan, Dewan Kebudayaan Desa, para Maestro Penenun Dusun Gubuk Timuk & Gubuk Barat, Tokoh Adat, dan Tim Peneliti KKN Tematik Kebudayaan Perguruan Tinggi. Seluruh data diverifikasi bersama para tetua adat guna menjamin keaslian orisinalitas kultural.',
-            'Managed collaboratively by the Village Government of South Pringgasela, Cultural Board, Master Weavers, Customary Elders, and University Field Researchers.'
+            'Desa Pringgasela Selatan, Kecamatan Pringgasela, Kabupaten Lombok Timur, Provinsi Nusa Tenggara Barat, Indonesia. Terletak di ketinggian lereng timur Gunung Rinjani dengan tradisi agraris dan kerajinan tenun gedogan yang telah berusia ratusan tahun.',
+            'South Pringgasela Village, Pringgasela District, East Lombok Regency, West Nusa Tenggara Province, Indonesia. Situated on the fertile eastern foothills of Mount Rinjani with centuries-old traditions of agriculture and backstrap loom weaving.'
           )}
         </p>
-
-        {/* Contact Coordinates */}
-        <div className="pt-6 border-t border-border/80 grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-text/90">
-          <div className="space-y-1">
-            <span className="font-semibold text-secondary flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-accent" />
-              {t('Alamat Sekretariat', 'Location')}:
-            </span>
-            <p className="text-muted leading-relaxed">
-              {settings.village_address || 'Jl. Pariwisata Budaya Pringgasela Selatan, Kec. Pringgasela, Kab. Lombok Timur, NTB 83661'}
-            </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#1E3246] text-xs text-[#E8DCC9]/80">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-terracotta" />
+            <span>Kode Pos 83661, Nusa Tenggara Barat</span>
           </div>
-
-          <div className="space-y-1">
-            <span className="font-semibold text-secondary flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-accent" />
-              {t('Surel Resmi', 'Official Email')}:
-            </span>
-            <p className="text-muted">
-              {settings.contact_email || 'museum@pringgasela.desa.id'}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <span className="font-semibold text-secondary flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-accent" />
-              {t('Jam Operasional', 'Visiting Hours')}:
-            </span>
-            <p className="text-muted leading-relaxed">
-              {settings.opening_hours || 'Senin – Sabtu: 08.00 – 16.00 WITA | Daring 24/7'}
-            </p>
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-terracotta" />
+            <span className="font-mono">pemdes@pringgaselaselatan.desa.id</span>
           </div>
         </div>
-      </section>
+      </div>
 
     </div>
   );

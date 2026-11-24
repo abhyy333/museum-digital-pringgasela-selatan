@@ -95,39 +95,39 @@ export const CultureDetailPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={toggleLocale}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium hover:bg-sand-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-border bg-indigo-surface text-xs font-medium text-warm-ivory hover:border-terracotta transition-colors"
             >
-              <Globe className="w-3.5 h-3.5 text-secondary" />
+              <Globe className="w-3.5 h-3.5 text-terracotta" />
               <span>{locale === 'id' ? 'English' : 'Bahasa Indonesia'}</span>
             </button>
 
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium hover:bg-sand-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-border bg-indigo-surface text-xs font-medium text-warm-ivory hover:border-terracotta transition-colors"
             >
-              <Share2 className="w-3.5 h-3.5 text-muted" />
+              <Share2 className="w-3.5 h-3.5 text-muted-blue" />
               <span>{copied ? t('Tautan Disalin!', 'Link Copied!') : t('Bagikan', 'Share')}</span>
             </button>
           </div>
         </div>
 
         <div className="flex items-center gap-2 pt-2">
-          <Badge variant="accent" size="md">
+          <Badge variant="terracotta" size="md">
             <Moon className="w-3.5 h-3.5 mr-1" />
             {culture.periodicity}
           </Badge>
-          <Badge variant="primary" size="md">
+          <Badge variant="secondary" size="md">
             {t('Warisan Takbenda Sasak', 'Sasak Intangible Heritage')}
           </Badge>
         </div>
 
-        <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-text leading-tight">
+        <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-warm-ivory leading-tight">
           {title}
         </h1>
       </div>
 
       {/* Main Image */}
-      <div className="max-w-4xl rounded-2xl border border-border overflow-hidden bg-sand-100 aspect-16/9 shadow-sm">
+      <div className="max-w-4xl rounded-2xl border border-indigo-border overflow-hidden bg-indigo-card aspect-16/9 shadow-md">
         <img src={mainImageUrl} alt={title} className="w-full h-full object-cover" />
       </div>
 
@@ -135,18 +135,18 @@ export const CultureDetailPage: React.FC = () => {
       <div className="max-w-4xl space-y-10">
         
         {trans?.summary && (
-          <div className="bg-sand-50 p-6 rounded-2xl border border-border text-lg font-serif italic text-text/90 leading-relaxed">
+          <div className="bg-indigo-card p-6 rounded-2xl border border-indigo-border text-lg font-serif italic text-warm-ivory/90 leading-relaxed border-l-4 border-l-terracotta">
             "{trans.summary}"
           </div>
         )}
 
         {trans?.description && (
           <div className="space-y-3">
-            <h2 className="font-serif text-2xl font-bold text-text flex items-center gap-2">
-              <Scroll className="w-5 h-5 text-accent" />
+            <h2 className="font-serif text-2xl font-bold text-warm-ivory flex items-center gap-2">
+              <Scroll className="w-5 h-5 text-terracotta" />
               <span>{t('Hakikat dan Riwayat Tradisi', 'Heritage Essence & Historical Account')}</span>
             </h2>
-            <div className="text-base text-text/90 leading-relaxed font-sans whitespace-pre-line bg-surface p-6 rounded-2xl border border-border">
+            <div className="text-base text-warm-ivory/85 leading-relaxed font-sans whitespace-pre-line bg-indigo-card p-6 rounded-2xl border border-indigo-border">
               {trans.description}
             </div>
           </div>
@@ -154,11 +154,11 @@ export const CultureDetailPage: React.FC = () => {
 
         {trans?.ritualProcedure && (
           <div className="space-y-3">
-            <h2 className="font-serif text-2xl font-bold text-text flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="font-serif text-2xl font-bold text-warm-ivory flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-terracotta" />
               <span>{t('Tata Cara & Prosedur Pelaksanaan Adat', 'Ritual Execution & Ceremonial Order')}</span>
             </h2>
-            <div className="text-base text-text/90 leading-relaxed font-sans whitespace-pre-line bg-surface p-6 rounded-2xl border border-border">
+            <div className="text-base text-warm-ivory/85 leading-relaxed font-sans whitespace-pre-line bg-indigo-card p-6 rounded-2xl border border-indigo-border">
               {trans.ritualProcedure}
             </div>
           </div>
@@ -166,11 +166,11 @@ export const CultureDetailPage: React.FC = () => {
 
         {trans?.spiritualValue && (
           <div className="space-y-3">
-            <h2 className="font-serif text-2xl font-bold text-text flex items-center gap-2">
-              <Heart className="w-5 h-5 text-accent" />
+            <h2 className="font-serif text-2xl font-bold text-warm-ivory flex items-center gap-2">
+              <Heart className="w-5 h-5 text-terracotta" />
               <span>{t('Nilai Luhur & Spiritualitas Komunal', 'Spiritual Philosophy & Social Harmony')}</span>
             </h2>
-            <div className="text-base text-text/90 leading-relaxed font-sans whitespace-pre-line bg-sand-100 p-6 rounded-2xl border border-border border-l-4 border-l-accent">
+            <div className="text-base text-warm-ivory/85 leading-relaxed font-sans whitespace-pre-line bg-indigo-card p-6 rounded-2xl border border-indigo-border border-l-4 border-l-terracotta">
               {trans.spiritualValue}
             </div>
           </div>
