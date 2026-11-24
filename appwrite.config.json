@@ -1,0 +1,1937 @@
+{
+    "projectId": "6affdaa0003c416ecdb0",
+    "projectName": "Museum Digital Pringgasela Selatan",
+    "settings": {
+        "services": {
+            "account": true,
+            "avatars": true,
+            "databases": true,
+            "locale": true,
+            "health": true,
+            "storage": true,
+            "teams": true,
+            "users": true,
+            "sites": true,
+            "functions": true,
+            "graphql": true,
+            "messaging": true
+        },
+        "protocols": {
+            "rest": true,
+            "graphql": true,
+            "websocket": true
+        },
+        "auth": {
+            "methods": {
+                "jwt": true,
+                "phone": true,
+                "invites": true,
+                "anonymous": true,
+                "email-otp": true,
+                "magic-url": true,
+                "email-password": true
+            },
+            "security": {
+                "duration": 31536000,
+                "limit": null,
+                "sessionsLimit": 10,
+                "passwordHistory": null,
+                "passwordDictionary": false,
+                "personalDataCheck": false,
+                "sessionAlerts": false,
+                "mockNumbers": []
+            }
+        }
+    },
+    "functions": [
+        {
+            "$id": "museum-public-api",
+            "name": "Museum Public API",
+            "runtime": "node-22",
+            "path": "functions/museum-public-api",
+            "entrypoint": "src/main.js",
+            "execute": [
+                "any"
+            ],
+            "enabled": true,
+            "logging": false,
+            "events": [],
+            "schedule": "",
+            "interval": 0,
+            "timeout": 15,
+            "commands": "npm install",
+            "scopes": [
+                "databases.read",
+                "tables.read",
+                "rows.read",
+                "files.read"
+            ],
+            "installationId": "",
+            "providerRepositoryId": "",
+            "providerBranch": "",
+            "providerSilentMode": false,
+            "providerRootDirectory": "",
+            "providerBranches": [],
+            "providerPaths": [],
+            "buildSpecification": "s-2vcpu-2gb",
+            "runtimeSpecification": "s-0.5vcpu-512mb",
+            "deploymentRetention": 0
+        }
+    ],
+    "tablesDB": [
+        {
+            "$id": "museum_digital",
+            "name": "Museum Digital Pringgasela Selatan",
+            "enabled": true
+        }
+    ],
+    "tables": [
+        {
+            "$id": "categories",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Categories",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "slug",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "type",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "craft",
+                        "motif",
+                        "culture",
+                        "history"
+                    ]
+                },
+                {
+                    "key": "nameId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 100,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "nameEn",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 100,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "parentId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "sortOrder",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": 0,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_categories_slug",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "slug"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_categories_type",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "type"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "profiles",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Profiles",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "fullName",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 128,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "role",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "super_admin",
+                        "admin_desa",
+                        "admin_kkn"
+                    ]
+                },
+                {
+                    "key": "isActive",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "avatarFileId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "institution",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 128,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "bio",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 500,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_profiles_userId",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "userId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_profiles_role",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "role"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "contributors",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Contributors",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "slug",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 128,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "type",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "penenun",
+                        "pembatik",
+                        "tokoh_adat",
+                        "peneliti",
+                        "lainnya"
+                    ]
+                },
+                {
+                    "key": "dusun",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 64,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "experienceYears",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "photoFileId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "bioId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "bioEn",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_contributors_slug",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "slug"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_contributors_type",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "type"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "crafts",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Crafts",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "slug",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 96,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "categoryId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "craftType",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "tenun_gedogan",
+                        "tenun_sesek",
+                        "batik_sasambo",
+                        "anyaman",
+                        "lainnya"
+                    ]
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "draft",
+                        "in_review",
+                        "published",
+                        "archived"
+                    ]
+                },
+                {
+                    "key": "isFeatured",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "createdById",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "contributorId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "reviewedById",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_crafts_slug",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "slug"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_crafts_status",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "status"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_crafts_category",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "categoryId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "craft_translations",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Craft Translations",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "craftId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "locale",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "id",
+                        "en"
+                    ]
+                },
+                {
+                    "key": "title",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 150,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "summary",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 350,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "technique",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 3000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "materials",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "description",
+                    "type": "mediumtext",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "culturalMeaning",
+                    "type": "mediumtext",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_craft_trans_craft",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "craftId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_craft_trans_locale",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "locale"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "weaving_motifs",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Weaving Motifs",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "slug",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 96,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "draft",
+                        "in_review",
+                        "published",
+                        "archived"
+                    ]
+                },
+                {
+                    "key": "isFeatured",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "createdById",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "codeName",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 32,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "primaryCraftId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "categoryId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "contributorId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "reviewedById",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_motifs_slug",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "slug"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_motifs_status",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "status"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_motifs_category",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "categoryId"
+                    ],
+                    "orders": []
+                },
+                {
+                    "key": "idx_motifs_contributor",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "contributorId"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "motif_translations",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Motif Translations",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "motifId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "locale",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "id",
+                        "en"
+                    ]
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 120,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "philosophy",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 5000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "historicalUsage",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 3000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "originStory",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 5000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "visualDescription",
+                    "type": "mediumtext",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "technique",
+                    "type": "mediumtext",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_motif_trans_motif",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "motifId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_motif_trans_locale",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "locale"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "cultures",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Cultures",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "slug",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 96,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "categoryId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "periodicity",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "rutin_mingguan",
+                        "tahunan",
+                        "siklus_hidup",
+                        "insidental"
+                    ]
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "draft",
+                        "in_review",
+                        "published",
+                        "archived"
+                    ]
+                },
+                {
+                    "key": "isFeatured",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "createdById",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "contributorId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_cultures_slug",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "slug"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_cultures_status",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "status"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_cultures_contributor",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "contributorId"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "culture_translations",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Culture Translations",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "cultureId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "locale",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "id",
+                        "en"
+                    ]
+                },
+                {
+                    "key": "title",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 150,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "summary",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 350,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "description",
+                    "type": "mediumtext",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "ritualProcedure",
+                    "type": "mediumtext",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "spiritualValue",
+                    "type": "mediumtext",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_cult_trans_culture",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "cultureId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_cult_trans_locale",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "locale"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "village_history",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Village History",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "slug",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 96,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "startYear",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "endYear",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "sortOrder",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": 0,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "draft",
+                        "in_review",
+                        "published",
+                        "archived"
+                    ]
+                },
+                {
+                    "key": "createdById",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_history_slug",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "slug"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_history_status",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "status"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "history_translations",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "History Translations",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "historyId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "locale",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "id",
+                        "en"
+                    ]
+                },
+                {
+                    "key": "eraTitle",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 150,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "narrative",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 10000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "keyFigures",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "legacyToday",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_hist_trans_history",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "historyId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_hist_trans_locale",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "locale"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "media_assets",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Media Assets",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "fileId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "bucketId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "mediaType",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "image",
+                        "video",
+                        "audio",
+                        "document"
+                    ]
+                },
+                {
+                    "key": "mimeType",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "fileSizeBytes",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "width",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "height",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "durationSeconds",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                },
+                {
+                    "key": "altTextId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "altTextEn",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "captionId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 500,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "captionEn",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 500,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "photographer",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 128,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "createdById",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_media_fileId",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "fileId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_media_type",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "mediaType"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "craft_media",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Craft Media",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "craftId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "mediaAssetId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "role",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "cover",
+                        "gallery",
+                        "process",
+                        "close_up"
+                    ]
+                },
+                {
+                    "key": "sortOrder",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": 0,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_craft_media_craft",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "craftId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_craft_media_asset",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "mediaAssetId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "motif_media",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Motif Media",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "motifId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "mediaAssetId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "isPatternDiagram",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "sortOrder",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": 0,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_motif_media_motif",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "motifId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_motif_media_asset",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "mediaAssetId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "culture_media",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Culture Media",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "cultureId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "mediaAssetId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "isAudioChant",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "sortOrder",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": 0,
+                    "min": -9223372036854775808,
+                    "max": 9223372036854775807
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_culture_media_cult",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "cultureId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_culture_media_asset",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "mediaAssetId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "audit_logs",
+            "$permissions": [
+                "read(\"team:museum-admins/owner\")",
+                "read(\"team:museum-admins/desa\")",
+                "create(\"team:museum-admins\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Audit Logs",
+            "enabled": true,
+            "rowSecurity": false,
+            "columns": [
+                {
+                    "key": "actorUserId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "action",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "format": "enum",
+                    "elements": [
+                        "create",
+                        "update",
+                        "publish",
+                        "unpublish",
+                        "archive",
+                        "delete"
+                    ]
+                },
+                {
+                    "key": "entityType",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 32,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "entityId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "changesJson",
+                    "type": "mediumtext",
+                    "required": false,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "ipAddress",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 45,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_audit_actor",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "actorUserId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "idx_audit_entity",
+                    "type": "key",
+                    "status": "available",
+                    "columns": [
+                        "entityType"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "museum_settings",
+            "$permissions": [
+                "read(\"team:museum-admins\")",
+                "create(\"team:museum-admins/owner\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "databaseId": "museum_digital",
+            "name": "Museum Settings",
+            "enabled": true,
+            "rowSecurity": true,
+            "columns": [
+                {
+                    "key": "settingKey",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "updatedById",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 36,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "settingValue",
+                    "type": "mediumtext",
+                    "required": true,
+                    "array": false,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "description",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "idx_settings_key",
+                    "type": "unique",
+                    "status": "available",
+                    "columns": [
+                        "settingKey"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        }
+    ],
+    "buckets": [
+        {
+            "$id": "museum-media",
+            "$permissions": [
+                "create(\"team:museum-admins\")",
+                "update(\"team:museum-admins/desa\")",
+                "update(\"team:museum-admins/owner\")",
+                "delete(\"team:museum-admins/owner\")"
+            ],
+            "fileSecurity": true,
+            "name": "Museum Media & Heritage Storage",
+            "enabled": true,
+            "maximumFileSize": 50000000,
+            "allowedFileExtensions": [
+                "jpg",
+                "jpeg",
+                "png",
+                "webp",
+                "svg",
+                "avif",
+                "tif",
+                "tiff",
+                "mp3",
+                "wav",
+                "aac",
+                "ogg",
+                "mp4",
+                "webm",
+                "pdf",
+                "zip"
+            ],
+            "compression": "none",
+            "encryption": true,
+            "antivirus": true
+        }
+    ],
+    "teams": [
+        {
+            "$id": "museum-admins",
+            "$createdAt": "2026-11-24T01:20:09.812+00:00",
+            "$updatedAt": "2026-11-24T10:55:45.278+00:00",
+            "name": "Museum Administrators",
+            "total": 3,
+            "prefs": {}
+        }
+    ]
+}
