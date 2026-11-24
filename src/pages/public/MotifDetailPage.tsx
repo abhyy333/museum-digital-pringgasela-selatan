@@ -19,6 +19,7 @@ import { publicApi } from '../../appwrite/publicApi';
 import { WeavingMotif } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
+import { Badge } from '../../components/common/Badge';
 import { getFallbackImage, getFilePreviewUrl, getFileViewUrl } from '../../utils/media';
 
 export const MotifDetailPage: React.FC = () => {
@@ -50,7 +51,7 @@ export const MotifDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-24">
+      <div className="max-w-7xl mx-auto px-4 py-20">
         <LoadingSpinner message={t('Membuka manuskrip motif tenun...', 'Loading motif manuscript...')} size="lg" />
       </div>
     );
@@ -58,7 +59,7 @@ export const MotifDetailPage: React.FC = () => {
 
   if (error || !motif) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-24">
+      <div className="max-w-7xl mx-auto px-4 py-20">
         <ErrorState
           title={t('Motif Tidak Ditemukan', 'Motif Not Found')}
           message={error || t('Arsip motif yang Anda cari tidak tersedia atau belum dipublikasikan.', 'The requested motif is unavailable or unpublished.')}
@@ -66,7 +67,7 @@ export const MotifDetailPage: React.FC = () => {
         <div className="text-center mt-6">
           <Link
             to="/motifs"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-terracotta hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>{t('Kembali ke Ensiklopedia Motif', 'Back to Motif Encyclopedia')}</span>
@@ -101,11 +102,11 @@ export const MotifDetailPage: React.FC = () => {
     <article className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
       
       {/* 1. EDITORIAL HEADER & BREADCRUMB */}
-      <div className="space-y-4 border-b border-[#1E3246]/60 pb-8">
+      <div className="space-y-4 border-b border-border/80 pb-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Link
             to="/motifs"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-[#8D9CAE] hover:text-terracotta transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-muted hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>{t('Kembali ke Ensiklopedia Motif', 'Back to Encyclopedia')}</span>
@@ -114,79 +115,82 @@ export const MotifDetailPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={toggleLocale}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E3246] bg-[#0E1A27] text-xs font-medium text-[#E8DCC9] hover:bg-[#132334] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium hover:bg-sand-100 transition-colors"
             >
-              <Globe className="w-3.5 h-3.5 text-terracotta" />
+              <Globe className="w-3.5 h-3.5 text-secondary" />
               <span>{locale === 'id' ? 'English Version' : 'Versi Bahasa Indonesia'}</span>
             </button>
 
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E3246] bg-[#0E1A27] text-xs font-medium text-[#E8DCC9] hover:bg-[#132334] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium hover:bg-sand-100 transition-colors"
             >
-              <Share2 className="w-3.5 h-3.5 text-[#8D9CAE]" />
+              <Share2 className="w-3.5 h-3.5 text-muted" />
               <span>{copied ? t('Tautan Disalin!', 'Link Copied!') : t('Bagikan', 'Share')}</span>
             </button>
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
-          <div className="flex flex-wrap items-center gap-3">
-            {motif.codeName && (
-              <span className="px-2.5 py-1 rounded-md bg-[#132334] text-terracotta border border-[#1E3246] text-xs font-mono font-semibold tracking-wider">
-                {motif.codeName}
-              </span>
-            )}
-            <span className="px-2.5 py-1 rounded-md bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-              {t('Arsip Budaya Terverifikasi', 'Verified Cultural Archive')}
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          {motif.codeName && (
+            <span className="px-3 py-1 rounded-md bg-sand-900 text-sand-100 font-mono text-xs font-medium tracking-wider">
+              {motif.codeName}
             </span>
-          </div>
-
-          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#F8F5EF] leading-[1.1]">
-            {name}
-          </h1>
-
-          <p className="text-sm sm:text-base text-[#E8DCC9]/80 font-sans max-w-3xl leading-relaxed">
-            {trans?.philosophy?.slice(0, 180)}...
-          </p>
+          )}
+          <Badge variant="primary" size="md">
+            {t('Motif Tradisional Pringgasela', 'Pringgasela Traditional Motif')}
+          </Badge>
+          <Badge variant="success" size="md">
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+            {t('Terverifikasi Dewan Kebudayaan Desa', 'Verified by Cultural Board')}
+          </Badge>
         </div>
+
+        <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-text leading-tight">
+          {name}
+        </h1>
       </div>
 
-      {/* 2. MEDIA GALLERY & CURATORIAL METADATA */}
+      {/* 2. VISUAL ARTIFACT SPREAD */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Main Photograph & Multi-angle Switcher (7 Cols) */}
+        {/* Main Cultural Imagery & Gallery (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[#101D2B] border border-[#1E3246] shadow-md">
+          <div className="rounded-2xl border border-border overflow-hidden bg-sand-100 aspect-4/3 shadow-sm relative group">
             <img
               src={mainImageUrl}
               alt={name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
             />
           </div>
 
-          {/* Thumbnail list if multiple photos */}
+          {/* Thumbnails Gallery if multiple media */}
           {mediaList.length > 1 && (
             <div className="flex items-center gap-3 overflow-x-auto pb-2">
               {mediaList.map((m, idx) => {
                 const thumbUrl = getFilePreviewUrl(m.mediaAssetId, { width: 150, height: 100 });
+                const isSelected = selectedImageIndex === idx;
                 return (
                   <button
                     key={m.mediaAssetId || idx}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`relative w-20 h-16 rounded-md overflow-hidden border-2 shrink-0 transition-all ${
-                      selectedImageIndex === idx ? 'border-terracotta ring-1 ring-terracotta' : 'border-[#1E3246] opacity-60 hover:opacity-100'
+                    className={`relative rounded-xl border-2 overflow-hidden w-24 h-16 shrink-0 transition-all ${
+                      isSelected ? 'border-primary ring-2 ring-primary/20 scale-102' : 'border-border opacity-70 hover:opacity-100'
                     }`}
                   >
                     <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                    {m.isPatternDiagram && (
+                      <span className="absolute bottom-0 inset-x-0 bg-sand-900/80 text-[10px] text-surface font-sans text-center py-0.5">
+                        Diagram
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
           )}
 
-          <p className="text-xs text-[#8D9CAE] italic text-center">
+          <p className="text-xs text-muted italic text-center">
             {t(
               '* Dokumentasi visual resmi arsip tenun tradisional Desa Pringgasela Selatan.',
               '* Official visual documentation from South Pringgasela traditional weaving archives.'
@@ -199,62 +203,62 @@ export const MotifDetailPage: React.FC = () => {
           
           {/* Artisan & Cultural Informant Card */}
           {motif.contributor && (
-            <div className="bg-[#0E1A27] rounded-lg border border-[#1E3246] p-6 space-y-4 shadow-sm">
-              <div className="flex items-center gap-2 text-xs font-semibold text-terracotta uppercase tracking-wider">
-                <User className="w-4 h-4 text-terracotta" />
+            <div className="bg-surface rounded-2xl border border-border p-6 space-y-4 shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-semibold text-secondary uppercase tracking-wider">
+                <User className="w-4 h-4 text-primary" />
                 <span>{t('Atribusi Tokoh Adat / Penenun', 'Artisan & Cultural Informant')}</span>
               </div>
 
               <div>
-                <h4 className="font-serif text-xl font-bold text-[#F8F5EF]">
+                <h4 className="font-serif text-xl font-bold text-text">
                   {motif.contributor.name}
                 </h4>
-                <p className="text-xs text-terracotta font-medium uppercase tracking-wider mt-0.5">
+                <p className="text-xs text-secondary font-medium uppercase tracking-wider mt-0.5">
                   {motif.contributor.type === 'penenun' ? t('Maestro Penenun Tradisional', 'Master Traditional Weaver') : motif.contributor.type}
                 </p>
               </div>
 
               {motif.contributor.dusun && (
-                <div className="flex items-center gap-2 text-xs text-[#E8DCC9]/80">
-                  <MapPin className="w-3.5 h-3.5 text-terracotta" />
+                <div className="flex items-center gap-2 text-xs text-muted">
+                  <MapPin className="w-3.5 h-3.5 text-accent" />
                   <span>{motif.contributor.dusun}, Pringgasela Selatan</span>
                 </div>
               )}
 
               {motif.contributor.experienceYears && (
-                <div className="flex items-center gap-2 text-xs text-[#E8DCC9]/80">
-                  <Calendar className="w-3.5 h-3.5 text-terracotta" />
+                <div className="flex items-center gap-2 text-xs text-muted">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
                   <span>{motif.contributor.experienceYears} {t('Tahun Menenun Gedogan', 'Years Practicing Loom Weaving')}</span>
                 </div>
               )}
 
-              <p className="text-xs sm:text-sm text-[#E8DCC9]/75 leading-relaxed border-t border-[#1E3246] pt-3 font-sans">
+              <p className="text-sm text-text/80 leading-relaxed border-t border-border/60 pt-3">
                 {locale === 'en' ? motif.contributor.bioEn || motif.contributor.bioId : motif.contributor.bioId}
               </p>
             </div>
           )}
 
           {/* Verification & Metadata Specification Card */}
-          <div className="bg-[#132334] rounded-lg border border-[#1E3246] p-6 space-y-4 text-xs">
-            <h4 className="font-serif text-sm font-bold text-[#F8F5EF] uppercase tracking-wider">
+          <div className="bg-sand-50 rounded-2xl border border-border p-6 space-y-4 text-xs">
+            <h4 className="font-serif text-sm font-bold text-text uppercase tracking-wider">
               {t('Spesifikasi Kurasi Budaya', 'Cultural Curation Specs')}
             </h4>
-            <div className="space-y-2.5 text-[#E8DCC9]/80">
-              <div className="flex justify-between border-b border-[#1E3246] pb-2">
+            <div className="space-y-2.5 text-muted">
+              <div className="flex justify-between border-b border-border/40 pb-2">
                 <span>{t('Kode Registrasi', 'Catalog Code')}</span>
-                <span className="font-mono font-semibold text-[#F8F5EF]">{motif.codeName || 'SBN-PGL'}</span>
+                <span className="font-mono font-semibold text-text">{motif.codeName || 'SBN-PGL'}</span>
               </div>
-              <div className="flex justify-between border-b border-[#1E3246] pb-2">
+              <div className="flex justify-between border-b border-border/40 pb-2">
                 <span>{t('Alat Tenun', 'Loom Type')}</span>
-                <span className="font-medium text-[#F8F5EF]">Gedogan (Cag-cag)</span>
+                <span className="font-medium text-text">Gedogan (Cag-cag)</span>
               </div>
-              <div className="flex justify-between border-b border-[#1E3246] pb-2">
+              <div className="flex justify-between border-b border-border/40 pb-2">
                 <span>{t('Pewarna Alami', 'Dyeing')}</span>
-                <span className="font-medium text-[#F8F5EF]">Tarum (Indigo), Mahoni</span>
+                <span className="font-medium text-text">Tarum (Indigo), Mahoni</span>
               </div>
               <div className="flex justify-between">
                 <span>{t('Status Preservasi', 'Preservation Status')}</span>
-                <span className="font-semibold text-emerald-400">Warisan Budaya Hidup</span>
+                <span className="font-semibold text-emerald-800">Warisan Budaya Hidup</span>
               </div>
             </div>
           </div>
@@ -264,19 +268,19 @@ export const MotifDetailPage: React.FC = () => {
       </div>
 
       {/* 3. IN-DEPTH EDITORIAL DOCUMENTATION */}
-      <div className="max-w-4xl space-y-12 pt-8 border-t border-[#1E3246]/60">
+      <div className="max-w-4xl space-y-12 pt-8 border-t border-border">
         
         {/* Section A: Visual Morphology & Description */}
         {trans?.visualDescription && (
           <section className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
               <Layers className="w-4 h-4" />
               <span>{t('Morfologi & Deskripsi Visual', 'Visual Morphology & Geometry')}</span>
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Struktur Pola dan Ragam Hias Simetris', 'Geometric Rhythm & Pattern Layout')}
             </h2>
-            <div className="text-sm sm:text-base text-[#E8DCC9]/85 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-[#0E1A27] p-6 rounded-lg border border-[#1E3246]">
+            <div className="text-base text-text/90 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-surface p-6 rounded-2xl border border-border">
               {trans.visualDescription}
             </div>
           </section>
@@ -285,14 +289,14 @@ export const MotifDetailPage: React.FC = () => {
         {/* Section B: Philosophy & Cultural Symbolism */}
         {trans?.philosophy && (
           <section className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent">
               <Sparkles className="w-4 h-4" />
               <span>{t('Filosofi & Makna Spiritual', 'Philosophy & Cosmic Symbolism')}</span>
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Pesan Luhur di Balik Setiap Rajutan', 'Ancestral Wisdom Woven in Every Thread')}
             </h2>
-            <div className="text-sm sm:text-base text-[#E8DCC9]/90 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-[#132334] p-6 rounded-lg border border-[#1E3246] border-l-4 border-l-terracotta">
+            <div className="text-base text-text/90 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-sand-50 p-6 rounded-2xl border border-border border-l-4 border-l-accent">
               {trans.philosophy}
             </div>
           </section>
@@ -301,14 +305,14 @@ export const MotifDetailPage: React.FC = () => {
         {/* Section C: Weaving Technique & Loom Mechanics */}
         {trans?.technique && (
           <section className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-secondary">
               <BookOpen className="w-4 h-4" />
               <span>{t('Teknik & Rancang Bangun Tenun', 'Weaving Mechanics & Loom Technique')}</span>
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Keahlian Tangan dan Perhitungan Pakan-Lungsi', 'Manual Craftsmanship & Weft-Warp Execution')}
             </h2>
-            <div className="text-sm sm:text-base text-[#E8DCC9]/85 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-[#0E1A27] p-6 rounded-lg border border-[#1E3246]">
+            <div className="text-base text-text/90 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-surface p-6 rounded-2xl border border-border">
               {trans.technique}
             </div>
           </section>
@@ -317,14 +321,14 @@ export const MotifDetailPage: React.FC = () => {
         {/* Section D: Historical Usage & Lifecycle Rituals */}
         {trans?.historicalUsage && (
           <section className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
               <Info className="w-4 h-4" />
               <span>{t('Penggunaan Adat & Daur Hidup', 'Customary Usage & Life-Cycle Rites')}</span>
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Busana Upacara dan Penyambutan Tokoh', 'Ceremonial Attire & Sacred Functions')}
             </h2>
-            <div className="text-sm sm:text-base text-[#E8DCC9]/85 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-[#0E1A27] p-6 rounded-lg border border-[#1E3246]">
+            <div className="text-base text-text/90 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-surface p-6 rounded-2xl border border-border">
               {trans.historicalUsage}
             </div>
           </section>
@@ -333,14 +337,14 @@ export const MotifDetailPage: React.FC = () => {
         {/* Section E: Origin Story & Lineage */}
         {trans?.originStory && (
           <section className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#8D9CAE]">
-              <HistoryIcon className="w-4 h-4 text-terracotta" />
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
+              <HistoryIcon className="w-4 h-4" />
               <span>{t('Asal-Usul & Tutur Lisan', 'Origin Story & Oral Lineage')}</span>
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Warisan Sejarah Sejak Kesultanan Selaparang', 'Historical Lineage in Selaparang Era')}
             </h2>
-            <div className="text-sm sm:text-base text-[#E8DCC9]/85 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-[#132334] p-6 rounded-lg border border-[#1E3246]">
+            <div className="text-base text-text/90 leading-relaxed space-y-4 font-sans whitespace-pre-line bg-sand-100 p-6 rounded-2xl border border-border">
               {trans.originStory}
             </div>
           </section>

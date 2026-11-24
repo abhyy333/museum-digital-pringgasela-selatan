@@ -95,17 +95,17 @@ export const CraftDetailPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={toggleLocale}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-border bg-indigo-surface text-xs font-medium text-warm-ivory hover:border-terracotta transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium hover:bg-sand-100 transition-colors"
             >
-              <Globe className="w-3.5 h-3.5 text-terracotta" />
+              <Globe className="w-3.5 h-3.5 text-secondary" />
               <span>{locale === 'id' ? 'English' : 'Bahasa Indonesia'}</span>
             </button>
 
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-border bg-indigo-surface text-xs font-medium text-warm-ivory hover:border-terracotta transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium hover:bg-sand-100 transition-colors"
             >
-              <Share2 className="w-3.5 h-3.5 text-muted-blue" />
+              <Share2 className="w-3.5 h-3.5 text-muted" />
               <span>{copied ? t('Tautan Disalin!', 'Link Copied!') : t('Bagikan', 'Share')}</span>
             </button>
           </div>
@@ -116,60 +116,60 @@ export const CraftDetailPage: React.FC = () => {
             {craft.craftType === 'tenun' ? 'Tenun Tradisional Pringgasela' : craft.craftType}
           </Badge>
           {craft.isFeatured && (
-            <Badge variant="terracotta" size="md">
+            <Badge variant="accent" size="md">
               <Sparkles className="w-3.5 h-3.5 mr-1" />
               {t('Mahakarya Unggulan', 'Masterpiece')}
             </Badge>
           )}
         </div>
 
-        <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-warm-ivory leading-tight">
+        <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-text leading-tight">
           {title}
         </h1>
       </div>
 
       {/* Media & Summary Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-7 rounded-2xl border border-indigo-border overflow-hidden bg-indigo-card aspect-4/3 shadow-md">
+        <div className="lg:col-span-7 rounded-2xl border border-border overflow-hidden bg-sand-100 aspect-4/3 shadow-sm">
           <img src={mainImageUrl} alt={title} className="w-full h-full object-cover" />
         </div>
 
         <aside className="lg:col-span-5 space-y-6">
           {/* Quick Technical Specs */}
-          <div className="bg-indigo-card rounded-2xl border border-indigo-border p-6 space-y-4 shadow-sm">
-            <h3 className="font-serif text-lg font-bold text-warm-ivory border-b border-indigo-border pb-3">
+          <div className="bg-surface rounded-2xl border border-border p-6 space-y-4 shadow-xs">
+            <h3 className="font-serif text-lg font-bold text-text border-b border-border/60 pb-3">
               {t('Spesifikasi Kriya', 'Craft Specifications')}
             </h3>
 
             {trans?.technique && (
               <div className="space-y-1">
-                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase text-secondary">
                   <Wrench className="w-3.5 h-3.5" />
                   {t('Teknik Pembuatan', 'Weaving Technique')}
                 </span>
-                <p className="text-sm text-warm-ivory/85">{trans.technique}</p>
+                <p className="text-sm text-text/80">{trans.technique}</p>
               </div>
             )}
 
             {trans?.materials && (
-              <div className="space-y-1 pt-2 border-t border-indigo-border/60">
-                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+              <div className="space-y-1 pt-2 border-t border-border/40">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase text-secondary">
                   <Package className="w-3.5 h-3.5" />
                   {t('Bahan & Serat', 'Materials & Fibers')}
                 </span>
-                <p className="text-sm text-warm-ivory/85">{trans.materials}</p>
+                <p className="text-sm text-text/80">{trans.materials}</p>
               </div>
             )}
 
             {craft.contributor && (
-              <div className="space-y-1 pt-2 border-t border-indigo-border/60">
-                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-terracotta">
+              <div className="space-y-1 pt-2 border-t border-border/40">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase text-secondary">
                   <User className="w-3.5 h-3.5" />
                   {t('Pengrajin / Maestro', 'Artisan')}
                 </span>
-                <p className="text-sm font-medium text-warm-ivory">{craft.contributor.name}</p>
+                <p className="text-sm font-medium text-text">{craft.contributor.name}</p>
                 {craft.contributor.dusun && (
-                  <p className="text-xs text-muted-blue flex items-center gap-1">
+                  <p className="text-xs text-muted flex items-center gap-1">
                     <MapPin className="w-3 h-3" />
                     {craft.contributor.dusun}
                   </p>
@@ -181,13 +181,13 @@ export const CraftDetailPage: React.FC = () => {
       </div>
 
       {/* Main Narrative Text */}
-      <div className="max-w-4xl space-y-8 pt-8 border-t border-indigo-border">
+      <div className="max-w-4xl space-y-8 pt-8 border-t border-border">
         {trans?.description && (
           <div className="space-y-4">
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-warm-ivory">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Uraian Lengkap & Karakteristik Tekstil', 'Comprehensive Textile Overview')}
             </h2>
-            <div className="text-base text-warm-ivory/85 leading-relaxed font-sans whitespace-pre-line bg-indigo-card p-6 rounded-2xl border border-indigo-border">
+            <div className="text-base text-text/90 leading-relaxed font-sans whitespace-pre-line bg-surface p-6 rounded-2xl border border-border">
               {trans.description}
             </div>
           </div>
@@ -195,10 +195,10 @@ export const CraftDetailPage: React.FC = () => {
 
         {trans?.culturalMeaning && (
           <div className="space-y-4">
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-warm-ivory">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text">
               {t('Makna Kultural dalam Masyarakat Sasak', 'Cultural Significance in Sasak Society')}
             </h2>
-            <div className="text-base text-warm-ivory/85 leading-relaxed font-sans whitespace-pre-line bg-indigo-card p-6 rounded-2xl border border-indigo-border border-l-4 border-l-terracotta">
+            <div className="text-base text-text/90 leading-relaxed font-sans whitespace-pre-line bg-sand-50 p-6 rounded-2xl border border-border border-l-4 border-l-secondary">
               {trans.culturalMeaning}
             </div>
           </div>

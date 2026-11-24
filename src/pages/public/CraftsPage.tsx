@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
@@ -10,9 +11,10 @@ import { EmptyState } from '../../components/common/EmptyState';
 
 export const CraftsPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [crafts, setCrafts] = useState<Craft[]>([]);
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string>(() => searchParams.get('craftType') || 'all');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,9 +37,9 @@ export const CraftsPage: React.FC = () => {
 
   const craftTypes: Array<{ key: string; labelId: string; labelEn: string }> = [
     { key: 'all', labelId: 'Semua Tekstil', labelEn: 'All Textiles' },
-    { key: 'tenun', labelId: 'Tenun Gedogan Tradisional', labelEn: 'Traditional Weaving' },
+    { key: 'tenun', labelId: 'Tenun Tradisional', labelEn: 'Traditional Weaving' },
     { key: 'batik', labelId: 'Batik Sasambo', labelEn: 'Sasambo Batik' },
-    { key: 'kerajinan_tangan', labelId: 'Kriya Tangan Adat', labelEn: 'Customary Crafts' },
+    { key: 'kerajinan_tangan', labelId: 'Kerajinan Tangan', labelEn: 'Handicrafts' },
   ];
 
   const filteredCrafts = useMemo(() => {
@@ -61,35 +63,35 @@ export const CraftsPage: React.FC = () => {
   }, [crafts, selectedType, searchQuery, locale]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
       
       {/* Header */}
       <div className="max-w-3xl space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#132334] border border-[#1E3246] text-xs font-semibold text-terracotta uppercase tracking-wider">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-sand-200 text-xs font-semibold text-secondary uppercase tracking-wider">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>{t('Arsip Kriya Tekstil Adat', 'Customary Textile Crafts Archive')}</span>
+          <span>{t('Koleksi Tekstil & Kriya Sasak', 'Sasak Textiles & Craft Collection')}</span>
         </div>
-        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#F8F5EF]">
-          {t('Kriya Tekstil Tradisional & Batik Sasambo', 'Traditional Textile Crafts & Sasambo Batik')}
+        <h1 className="font-serif text-3xl sm:text-5xl font-bold text-text">
+          {t('Katalog Kerajinan & Tenun Tradisional', 'Crafts & Traditional Weaving Catalog')}
         </h1>
-        <p className="text-[#E8DCC9]/80 text-sm sm:text-base leading-relaxed">
+        <p className="text-muted text-base leading-relaxed">
           {t(
-            'Katalog komprehensif tenun gedogan Pringgasela dan karya batik Sasambo khas Nusa Tenggara Barat. Telusuri bahan baku serat alami, teknik pewarnaan nabati, dan proses pembuatan tangan.',
-            'Comprehensive catalog of Pringgasela backstrap loom textiles and West Nusa Tenggara Sasambo batik. Explore raw botanical fibers, natural dyeing, and manual handcrafting.'
+            'Eksplorasi karya tekstil autentik Pringgasela Selatan: Tenun gedogan benang serat kapas alami hingga Batik Sasambo khas Lombok Timur.',
+            'Explore authentic textile heritage from South Pringgasela: handloom backstrap weaving with organic plant dyes to distinctive Sasambo batik.'
           )}
         </p>
       </div>
 
-      {/* Toolbar */}
-      <div className="bg-[#0E1A27] p-4 sm:p-5 rounded-lg border border-[#1E3246] flex flex-col md:flex-row gap-4 justify-between items-center">
+      {/* Filter & Search Bar */}
+      <div className="bg-surface p-4 sm:p-6 rounded-2xl border border-border shadow-xs flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="relative w-full md:w-96">
-          <Search className="w-4 h-4 text-[#8D9CAE] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('Cari jenis kerajinan, bahan, teknik...', 'Search craft type, material, technique...')}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-[#1E3246] bg-[#0B1623] focus:border-terracotta focus:outline-hidden text-sm text-[#F8F5EF] placeholder-[#8D9CAE] transition-all"
+            placeholder={t('Cari nama tenun, teknik, bahan...', 'Search craft title, technique...')}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-sand-50 focus:bg-surface focus:border-primary focus:outline-hidden text-sm"
           />
         </div>
 
@@ -98,10 +100,10 @@ export const CraftsPage: React.FC = () => {
             <button
               key={type.key}
               onClick={() => setSelectedType(type.key)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 selectedType === type.key
-                  ? 'bg-terracotta text-[#F8F5EF] shadow-xs'
-                  : 'bg-[#132334] text-[#E8DCC9]/80 border border-[#1E3246] hover:bg-[#1E3246]'
+                  ? 'bg-secondary text-surface shadow-xs'
+                  : 'bg-sand-100 text-text hover:bg-sand-200'
               }`}
             >
               {t(type.labelId, type.labelEn)}
@@ -112,34 +114,25 @@ export const CraftsPage: React.FC = () => {
 
       {/* Grid */}
       {loading ? (
-        <div className="py-20">
-          <LoadingSpinner message={t('Mengakses katalog kerajinan...', 'Loading crafts catalog...')} />
-        </div>
+        <LoadingSpinner message={t('Memuat katalog kriya...', 'Loading craft catalog...')} size="lg" />
       ) : error ? (
-        <ErrorState
-          title={t('Gagal Memuat Kriya', 'Failed to Load Crafts')}
-          message={error}
-          onRetry={fetchCrafts}
-        />
-      ) : filteredCrafts.length === 0 ? (
+        <ErrorState message={error} onRetry={fetchCrafts} />
+      ) : filteredCrafts.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredCrafts.map((craft) => (
+            <CraftCard key={craft.$id} craft={craft} />
+          ))}
+        </div>
+      ) : (
         <EmptyState
-          title={t('Kriya Tidak Ditemukan', 'No Crafts Found')}
-          message={t(
-            'Tidak ada kerajinan yang sesuai dengan pencarian Anda.',
-            'No textile crafts match your search criteria.'
-          )}
-          actionLabel={t('Reset Pencarian', 'Reset Search')}
+          title={t('Karya Tidak Ditemukan', 'No Crafts Found')}
+          message={t('Tidak ada kerajinan yang sesuai dengan filter saat ini.', 'No crafts matched your filter.')}
+          actionText={t('Tampilkan Semua', 'Show All')}
           onAction={() => {
             setSearchQuery('');
             setSelectedType('all');
           }}
         />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCrafts.map((craft) => (
-            <CraftCard key={craft.$id} craft={craft} />
-          ))}
-        </div>
       )}
 
     </div>

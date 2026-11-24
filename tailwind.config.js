@@ -7,71 +7,61 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Dark Indigo Heritage Palette
-        indigo: {
-          deep: '#101D2B',
-          midnight: '#0B1623',
-          textile: '#17283A',
-          card: '#0E1A27',
-          surface: '#132334',
-          border: '#1E3246',
-        },
+        // Editorial Textile Heritage — Pringgasela South Digital Museum
+        ivory: '#F3EEE5',
+        aged: '#E9DFD0',
+        parchment: '#E6D9C6',
         terracotta: {
-          DEFAULT: '#B95735',
-          hover: '#A34828',
-          burnt: '#C66A42',
-          copper: '#A95B3D',
-          muted: '#8A4126',
-          light: '#2E1C18',
+          DEFAULT: '#984323',
+          hover: '#71321D',
+          deep: '#71321D',
+          light: '#F5EAE3',
         },
-        heritage: {
-          ivory: '#F2E9DC',
-          cream: '#E8DCC9',
-          beige: '#B9A993',
-          white: '#F8F5EF',
-          muted: '#8D9CAE',
-          sand: '#C5B6A0',
-        },
-        // Semantic mappings for compatibility across views
-        background: '#0B1623',
-        surface: '#101D2B',
-        text: '#F2E9DC',
+        indigoTextile: '#243A4A',
+        charcoal: '#25221F',
+        naturalBeige: '#C9B69C',
+        mutedBrown: '#806B58',
+        softLinen: '#D9CCB9',
+
+        // Semantic compatibility tokens for public pages & Admin CMS
+        background: '#F3EEE5',
+        surface: '#FBF8F3',
+        text: '#25221F',
         primary: {
-          DEFAULT: '#B95735',
-          hover: '#A34828',
-          light: '#1E3246',
+          DEFAULT: '#984323',
+          hover: '#71321D',
+          light: '#EFE4DA',
         },
         secondary: {
-          DEFAULT: '#C66A42',
-          hover: '#A95B3D',
-          light: '#17283A',
+          DEFAULT: '#806B58',
+          hover: '#665343',
+          light: '#F3EEE5',
         },
         accent: {
-          DEFAULT: '#B95735',
-          hover: '#C66A42',
-          light: '#2E1C18',
-        },
-        border: {
-          DEFAULT: '#1E3246',
-          dark: '#132334',
-          light: '#27425C',
-        },
-        muted: {
-          DEFAULT: '#8D9CAE',
-          light: '#B0C0D2',
+          DEFAULT: '#984323',
+          hover: '#71321D',
+          light: '#F5EAE3',
         },
         sand: {
-          50: '#132334',
-          100: '#101D2B',
-          200: '#17283A',
-          300: '#1E3246',
-          400: '#8D9CAE',
-          500: '#B9A993',
-          600: '#C5B6A0',
-          700: '#E8DCC9',
-          800: '#F2E9DC',
-          900: '#F8F5EF',
-        }
+          50: '#FAF7F2',
+          100: '#F3EEE5',
+          200: '#E9DFD0',
+          300: '#E6D9C6',
+          400: '#D9CCB9',
+          500: '#C9B69C',
+          600: '#806B58',
+          700: '#5C4D40',
+          800: '#3B342E',
+          900: '#25221F',
+        },
+        border: {
+          DEFAULT: '#D9CCB9',
+          dark: '#C9B69C',
+        },
+        muted: {
+          DEFAULT: '#6E5C4E',
+          light: '#806B58',
+        },
       },
       fontFamily: {
         serif: ['"Playfair Display"', 'Georgia', 'serif'],
@@ -80,4 +70,4 @@ export default {
     },
   },
   plugins: [],
-}
+};

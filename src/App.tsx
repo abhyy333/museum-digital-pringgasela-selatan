@@ -16,6 +16,7 @@ import { CulturesPage } from './pages/public/CulturesPage';
 import { CultureDetailPage } from './pages/public/CultureDetailPage';
 import { HistoryPage } from './pages/public/HistoryPage';
 import { AboutPage } from './pages/public/AboutPage';
+import { CuratorialPage } from './pages/public/CuratorialPage';
 
 // Admin Pages
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -81,6 +82,7 @@ export const App: React.FC = () => {
               <Route path="/crafts/:slug" element={<CraftDetailPage />} />
               <Route path="/cultures" element={<CulturesPage />} />
               <Route path="/cultures/:slug" element={<CultureDetailPage />} />
+              <Route path="/curatorial" element={<CuratorialPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/about" element={<AboutPage />} />
             </Route>

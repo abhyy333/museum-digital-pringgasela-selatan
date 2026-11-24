@@ -1,441 +1,397 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Layers, Sparkles, Compass } from 'lucide-react';
+import { ArrowRight, BookOpen, Layers } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
-import { WeavingMotif, Craft, Culture, VillageHistory } from '../../types/schema';
-import { MotifCard } from '../../components/public/MotifCard';
-import { CraftCard } from '../../components/public/CraftCard';
-import { CultureCard } from '../../components/public/CultureCard';
-import {
-  SweepingYarnCurves,
-  SasakStarCluster,
-  TerracottaBrushUnderline
-} from '../../components/common/DecorativeIcons';
+import { Category } from '../../types/schema';
+import { ArchiveHeroSection } from '../../components/hero/ArchiveHeroSection';
+import { MuseumLogo } from '../../components/common/MuseumLogo';
+
+interface FeaturedCollectionItem {
+  key: string;
+  titleId: string;
+  titleEn: string;
+  imageSrc: string;
+  altId: string;
+  altEn: string;
+  to: string;
+  matchSlugs?: string[];
+}
+
+const DEFAULT_FEATURED_CATEGORIES: FeaturedCollectionItem[] = [
+  {
+    key: 'motif-tenun',
+    titleId: 'Motif Tenun',
+    titleEn: 'Weaving Motifs',
+    imageSrc: '/images/collections/motif-tenun.webp',
+    altId: 'Detail tekstur kain tenun Pringgasela motif geometris indigo dan garis terakota',
+    altEn: 'Macro detail of handwoven Pringgasela indigo diamond motif textile',
+    to: '/motifs',
+    matchSlugs: ['tenun-tradisional', 'motif-tenun'],
+  },
+  {
+    key: 'alat-tenun',
+    titleId: 'Alat Tenun Tradisional',
+    titleEn: 'Traditional Looms',
+    imageSrc: '/images/collections/alat-tenun.webp',
+    altId: 'Teropong kayu alat tenun tradisional di atas kain tenun indigo dan terakota',
+    altEn: 'Carved wooden boat shuttle resting over handwoven indigo and terracotta textile',
+    to: '/crafts?craftType=tenun',
+    matchSlugs: ['alat-tenun', 'kerajinan-tenun'],
+  },
+  {
+    key: 'pewarna-alami',
+    titleId: 'Pewarna Alami',
+    titleEn: 'Natural Dyes',
+    imageSrc: '/images/collections/pewarna-alami.webp',
+    altId: 'Gantungan benang kapas pewarna alami tarum indigo, merah tanah, dan kuning kunyit',
+    altEn: 'Hanging skeins of natural indigo, terracotta earth, and turmeric-dyed yarns',
+    to: '/motifs?q=pewarna',
+    matchSlugs: ['pewarna-alami'],
+  },
+  {
+    key: 'arsitektur-desa',
+    titleId: 'Arsitektur & Ruang Budaya',
+    titleEn: 'Architecture & Cultural Space',
+    imageSrc: '/images/collections/arsitektur-desa.webp',
+    altId: 'Bale adat dan ruang menenun tradisional beratap alang-alang di Pringgasela Selatan',
+    altEn: 'Traditional Sasak thatched-roof weaving pavilion surrounded by trees',
+    to: '/cultures',
+    matchSlugs: ['arsitektur-budaya', 'ruang-budaya'],
+  },
+];
 
 export const HomePage: React.FC = () => {
   const { locale, t } = useLanguage();
-  const [motifs, setMotifs] = useState<WeavingMotif[]>([]);
-  const [crafts, setCrafts] = useState<Craft[]>([]);
-  const [cultures, setCultures] = useState<Culture[]>([]);
-  const [_historyEras, setHistoryEras] = useState<VillageHistory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cmsCategories, setCmsCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [motifRes, craftRes, cultRes, histRes] = await Promise.allSettled([
-          publicApi.getMotifs({ limit: 4 }),
-          publicApi.getCrafts({ limit: 3 }),
-          publicApi.getCultures({ limit: 2 }),
-          publicApi.getHistory(),
-        ]);
-
-        if (motifRes.status === 'fulfilled') setMotifs(motifRes.value.items || []);
-        if (craftRes.status === 'fulfilled') setCrafts(craftRes.value.items || []);
-        if (cultRes.status === 'fulfilled') setCultures(cultRes.value.items || []);
-        if (histRes.status === 'fulfilled') setHistoryEras(histRes.value.eras || []);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    publicApi
+      .getCategories()
+      .then((res) => {
+        if (Array.isArray(res.categories)) {
+          setCmsCategories(res.categories);
+        }
+      })
+      .catch(() => {
+        // Silent graceful fallback to reference museum pathways
+      });
   }, []);
 
+  const collectionCards = DEFAULT_FEATURED_CATEGORIES.map((item) => {
+    const matched = cmsCategories.find((c) => item.matchSlugs?.includes(c.slug));
+    if (!matched) return item;
+    return {
+      ...item,
+      titleId: matched.nameId && item.key === 'motif-tenun' ? item.titleId : matched.nameId || item.titleId,
+      titleEn: matched.nameEn && item.key === 'motif-tenun' ? item.titleEn : matched.nameEn || item.titleEn,
+      to: matched.type === 'craft' && item.key === 'motif-tenun' ? `/motifs?category=${matched.$id}` : item.to,
+    };
+  });
+
   return (
-    <div className="bg-[#0B1623] text-[#F2E9DC] min-h-screen">
-      
-      {/* =========================================================================
-          1. HERO SECTION — EDITORIAL SIGNATURE COMPOSITION
-          ========================================================================= */}
-      <section className="relative bg-indigo-textile pt-10 sm:pt-14 pb-16 md:pb-24 border-b border-[#1E3246]/60 overflow-hidden">
-        
-        {/* Layer 2: Decorative Sweeping Yarn Curves & Sasak Diamond Stars */}
-        <SweepingYarnCurves className="absolute inset-0 w-full h-full pointer-events-none opacity-80" />
-        <SasakStarCluster className="absolute right-[32%] top-8 hidden xl:block" />
+    <div className="relative overflow-x-clip">
+      {/* ================================================================= */}
+      {/* DECORATIVE CULTURAL MARGINS (Subtle Woven Selvedge & Linework)    */}
+      {/* ================================================================= */}
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-4 items-center">
-            
-            {/* Left Column (Headline & Content: 6 Cols) */}
-            <div className="lg:col-span-6 space-y-6 lg:pr-4">
-              
-              {/* Eyebrow Label */}
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] sm:text-xs uppercase tracking-[0.22em] text-[#E8DCC9]/70 font-semibold">
-                  {t('ARSIP BUDAYA PRINGGASELA SELATAN —', 'PRINGGASELA SELATAN CULTURAL ARCHIVES —')}
-                </span>
-              </div>
+      {/* Far-Right Authentic Deep Indigo Songket Selvedge Strip */}
+      <div
+        className="pointer-events-none hidden xl:block absolute top-0 right-0 w-[52px] 2xl:w-[68px] h-[640px] z-30 overflow-hidden select-none"
+        aria-hidden="true"
+      >
+        <img
+          src="/images/textures/indigo-textile.webp"
+          alt=""
+          className="w-full h-full object-cover object-center drop-shadow-[-4px_4px_10px_rgba(37,34,31,0.18)]"
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 h-28"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(243,238,229,0), rgba(243,238,229,1))',
+          }}
+        />
+      </div>
 
-              {/* Master Headline in Playfair Display Editorial Serif */}
-              <h1 className="font-serif text-4xl sm:text-5xl xl:text-6xl font-bold tracking-tight text-[#F8F5EF] leading-[1.08]">
-                Tenun,<br />
-                Manusia,<br />
-                dan Cerita Desa.
-              </h1>
+      {/* Far-Left Delicate Indigo Woven Geometry Margin Filigree */}
+      <div
+        className="pointer-events-none hidden xl:block absolute top-0 left-0 w-[22px] 2xl:w-[26px] h-[360px] z-10 overflow-hidden select-none opacity-45"
+        aria-hidden="true"
+      >
+        <svg viewBox="0 0 28 360" className="w-full h-full text-indigoTextile">
+          <defs>
+            <pattern id="leftWarpFiligree" width="28" height="44" patternUnits="userSpaceOnUse">
+              <path
+                d="M14,2 L24,12 L14,22 L4,12 Z M14,8 L18,12 L14,16 L10,12 Z M14,22 L24,32 L14,42 L4,32 Z M2,0 L2,44 M25,0 L25,44"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+              />
+            </pattern>
+          </defs>
+          <rect width="28" height="360" fill="url(#leftWarpFiligree)" />
+        </svg>
+        <div
+          className="absolute inset-x-0 bottom-0 h-24"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(243,238,229,0), rgba(243,238,229,1))',
+          }}
+        />
+      </div>
 
-              {/* Terracotta Brush Stroke Accent */}
-              <div className="-mt-2">
-                <TerracottaBrushUnderline className="h-2 w-48 text-terracotta" />
-              </div>
+      {/* Faint archival diamond seal accent peeking near Koleksi Unggulan left margin */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 120 140"
+        className="pointer-events-none hidden lg:block absolute top-[415px] -left-7 w-24 h-28 text-indigoTextile opacity-[0.07] z-0"
+      >
+        <g fill="none" stroke="currentColor" strokeWidth="2.2">
+          <polygon points="60,8 106,54 60,100 14,54" />
+          <polygon points="60,24 90,54 60,84 30,54" />
+          <polygon points="60,40 74,54 60,68 46,54" />
+        </g>
+      </svg>
 
-              {/* Supporting Cultural Narrative */}
-              <p className="text-sm sm:text-base text-[#E8DCC9]/85 font-normal leading-relaxed max-w-lg">
+      {/* ================================================================= */}
+      {/* SECTION 2: HERO — TENUN, TRADISI, DAN KEHIDUPAN MASYARAKAT        */}
+      {/* ================================================================= */}
+      <ArchiveHeroSection />
+
+      {/* Organic Horizontal Archival Paper Seam Divider */}
+      <div className="relative z-10 w-full h-[12px] overflow-hidden -mt-4 pointer-events-none" aria-hidden="true">
+        <svg viewBox="0 0 1440 16" preserveAspectRatio="none" className="w-full h-full">
+          <path
+            d="M0,10 Q180,4 360,9 T720,7 T1080,10 T1440,6 L1440,16 L0,16 Z"
+            fill="rgba(233, 223, 208, 0.35)"
+          />
+          <path
+            d="M0,10 Q180,4 360,9 T720,7 T1080,10 T1440,6"
+            fill="none"
+            stroke="#C9B69C"
+            strokeWidth="1"
+            strokeOpacity="0.65"
+          />
+        </svg>
+      </div>
+
+      {/* ================================================================= */}
+      {/* SECTION 3: KOLEKSI UNGGULAN — RAGAM WARISAN PRINGGASELA           */}
+      {/* ================================================================= */}
+      <section
+        className="relative z-10 py-5 sm:py-6 lg:py-5"
+        aria-labelledby="collections-heading"
+      >
+        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-14">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-5 items-start">
+            {/* Left Intro Column (Cols 1-3) */}
+            <div className="lg:col-span-3 space-y-2">
+              <span className="block font-sans text-[11px] font-medium uppercase tracking-[0.16em] text-terracotta">
+                {t('Koleksi Unggulan', 'Featured Collections')}
+              </span>
+              <h2
+                id="collections-heading"
+                className="font-serif text-[26px] sm:text-[29px] xl:text-[32px] font-semibold text-charcoal leading-[1.12] tracking-[-0.01em]"
+              >
+                {locale === 'id' ? (
+                  <>
+                    Ragam Warisan
+                    <br className="hidden lg:inline" /> Pringgasela
+                  </>
+                ) : (
+                  <>
+                    Pringgasela
+                    <br className="hidden lg:inline" /> Living Heritage
+                  </>
+                )}
+              </h2>
+              <p className="font-sans text-[13px] leading-[1.55] text-[#4D443B] pt-0.5 max-w-[270px]">
                 {t(
-                  'Museum digital untuk menyimpan, mendokumentasikan, dan merawat warisan tenun serta kehidupan budaya masyarakat Pringgasela Selatan.',
-                  'A digital museum to preserve, document, and steward the weaving heritage and cultural life of the South Pringgasela community.'
+                  'Pilihan koleksi yang merekam keahlian, nilai, dan identitas budaya masyarakat Pringgasela Selatan.',
+                  'Curated collections documenting craftsmanship, ancestral philosophy, and cultural identity of South Pringgasela.'
+                )}
+              </p>
+            </div>
+
+            {/* Right 4 Category Plates in One Desktop Row (Cols 4-12) */}
+            <div className="lg:col-span-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-4 xl:gap-5">
+              {collectionCards.map((cat) => (
+                <Link
+                  key={cat.key}
+                  to={cat.to}
+                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                >
+                  {/* Image Plate */}
+                  <div className="aspect-[16/10] w-full overflow-hidden border border-naturalBeige/80 bg-aged rounded-[2px]">
+                    <img
+                      src={cat.imageSrc}
+                      alt={t(cat.altId, cat.altEn)}
+                      width={1600}
+                      height={1000}
+                      loading="eager"
+                      className="w-full h-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-500"
+                    />
+                  </div>
+
+                  {/* Minimalist Serif Caption + Terracotta Arrow */}
+                  <div className="pt-2 flex items-center justify-between gap-2">
+                    <h3 className="font-serif text-[14px] lg:text-[13.5px] xl:text-[15px] font-semibold text-charcoal group-hover:text-terracotta transition-colors leading-snug">
+                      {t(cat.titleId, cat.titleEn)}
+                    </h3>
+                    <ArrowRight
+                      className="w-4 h-4 text-terracotta shrink-0 group-hover:translate-x-1 transition-transform"
+                      strokeWidth={1.75}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Irregular Organic Archival Paper Deckle Edge Above Kuratorial Band */}
+      <div className="relative z-10 w-full h-[18px] overflow-hidden -mb-[1px] pointer-events-none" aria-hidden="true">
+        <svg viewBox="0 0 1440 20" preserveAspectRatio="none" className="w-full h-full">
+          <path
+            d="M0,14 L110,10 L240,15 L390,7 L530,12 L675,5 L820,11 L975,6 L1120,13 L1290,8 L1440,12 L1440,20 L0,20 Z"
+            fill="rgba(233, 223, 208, 0.56)"
+          />
+          <path
+            d="M0,14 L110,10 L240,15 L390,7 L530,12 L675,5 L820,11 L975,6 L1120,13 L1290,8 L1440,12"
+            fill="none"
+            stroke="#C9B69C"
+            strokeWidth="1"
+            strokeOpacity="0.8"
+          />
+        </svg>
+      </div>
+
+      {/* ================================================================= */}
+      {/* SECTION 4: KURATORIAL & JELAJAH MUSEUM (3-Column Editorial Band)   */}
+      {/* ================================================================= */}
+      <section
+        id="kuratorial"
+        className="relative z-10 surface-aged-paper py-6 sm:py-8 lg:py-6 border-b border-softLinen/90"
+        aria-labelledby="curatorial-heading"
+      >
+        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-14">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 lg:gap-6 items-center">
+            {/* LEFT: Kuratorial Editorial Statement (Cols 1-3) */}
+            <div className="lg:col-span-4 xl:col-span-3 space-y-2.5">
+              <span className="block font-serif italic text-[14.5px] text-terracotta">
+                {t('Kuratorial', 'Curatorial')}
+              </span>
+              <h2
+                id="curatorial-heading"
+                className="font-serif text-[25px] sm:text-[28px] font-semibold text-charcoal leading-[1.15] tracking-[-0.01em]"
+              >
+                {locale === 'id' ? (
+                  <>
+                    Tenun dalam
+                    <br />
+                    Siklus Kehidupan
+                  </>
+                ) : (
+                  <>
+                    Weaving Through
+                    <br />
+                    Life’s Ceremonies
+                  </>
+                )}
+              </h2>
+              <p className="font-sans text-[13px] sm:text-[13.5px] leading-[1.58] text-[#4D443B]">
+                {t(
+                  'Tenun di Pringgasela Selatan bukan sekadar keterampilan, tetapi bagian dari siklus kehidupan masyarakat—dari keluarga, upacara, hingga identitas sosial.',
+                  'In South Pringgasela, handloom weaving is more than textile artistry; it anchors kinship bonds, life-cycle rituals, and social dignity.'
+                )}
+              </p>
+              <div className="pt-1">
+                <Link
+                  to="/curatorial"
+                  className="inline-flex items-center gap-2 font-sans text-[13px] font-medium text-terracotta hover:text-terracotta-hover group transition-colors"
+                >
+                  <span>{t('Baca Ulasan Kuratorial', 'Read Curatorial Essay')}</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" strokeWidth={1.75} />
+                </Link>
+              </div>
+            </div>
+
+            {/* CENTER: Natural Documentary Village Landscape with Organic Crop (Cols 5-8) */}
+            <div className="lg:col-span-4 xl:col-span-5">
+              <div className="relative w-full aspect-[16/10] lg:max-h-[220px] xl:max-h-[240px] overflow-hidden landscape-organic-crop">
+                <img
+                  src="/images/editorial/village-landscape.webp"
+                  alt={t(
+                    'Lanskap pedesaan Pringgasela Selatan berlatar pepohonan dan perbukitan Gunung Rinjani',
+                    'Documentary view across South Pringgasela village rooftops beneath Mount Rinjani foothills'
+                  )}
+                  width={2000}
+                  height={1200}
+                  loading="eager"
+                  className="w-full h-full object-cover object-center"
+                />
+              </div>
+            </div>
+
+            {/* RIGHT: Jelajah Museum Thematic Directory (Cols 9-12) */}
+            <div className="lg:col-span-4 xl:col-span-4 lg:pl-6 xl:pl-8 space-y-2.5 border-t lg:border-t-0 lg:border-l border-naturalBeige/65 pt-6 lg:pt-0">
+              <h2 className="font-serif text-[25px] sm:text-[28px] font-semibold text-charcoal leading-[1.15]">
+                {t('Jelajah Museum', 'Explore Museum')}
+              </h2>
+              <p className="font-sans text-[13px] sm:text-[13.5px] leading-[1.55] text-[#4D443B] pb-1">
+                {t(
+                  'Telusuri koleksi, cerita, dan dokumentasi budaya dalam beberapa tema utama.',
+                  'Navigate curated collections, oral histories, and archival records by core themes.'
                 )}
               </p>
 
-              {/* Primary Call to Action Button */}
-              <div className="pt-2">
+              <nav
+                className="border-t border-b border-naturalBeige/80 divide-y divide-naturalBeige/80"
+                aria-label={t('Tema Jelajah Museum', 'Museum Exploration Themes')}
+              >
                 <Link
                   to="/motifs"
-                  className="inline-flex items-center gap-3 px-6 py-3.5 rounded-lg bg-terracotta hover:bg-terracotta-hover text-[#F8F5EF] font-medium text-sm transition-all shadow-md hover:shadow-lg group"
+                  className="flex items-center justify-between py-2.5 group hover:bg-ivory/40 px-1 transition-colors"
                 >
-                  <span>{t('Jelajahi Koleksi', 'Explore Collection')}</span>
-                  <ArrowRight className="w-4 h-4 text-[#F8F5EF] group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-
-            </div>
-
-            {/* Right Column: Layer 3 & 4 Out-of-Frame Weaver & Loom Visual (6 Cols) */}
-            <div className="lg:col-span-6 relative mt-6 lg:mt-0 flex justify-center lg:justify-end">
-              <div className="relative w-full max-w-2xl lg:max-w-none -mr-4 sm:-mr-6 lg:-mr-12">
-                
-                {/* Out-of-frame Layered Weaver Image with Horizontal Loom Beam */}
-                <div className="relative z-20 group">
-                  <img
-                    src="/assets/hero-weaver-clean.webp"
-                    alt="Penenun Tradisional Gedogan Desa Pringgasela Selatan"
-                    className="w-full h-auto object-cover rounded-tl-xl drop-shadow-2xl transition-transform duration-500 hover:scale-[1.01]"
-                  />
-                  {/* Subtle blend gradient on left edge */}
-                  <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#0B1623] to-transparent pointer-events-none hidden sm:block" />
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-      </section>
-
-      {/* =========================================================================
-          2. FEATURED COLLECTION & CURATORIAL NOTE SECTION
-          ========================================================================= */}
-      <section className="relative bg-[#0B1623] border-b border-[#1E3246]/60 pt-10 pb-16 overflow-hidden">
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-            
-            {/* Left Area: KOLEKSI PILIHAN (3 Cards: 7 Cols) */}
-            <div className="lg:col-span-7 space-y-5">
-              
-              {/* Section Header */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs uppercase tracking-[0.2em] text-terracotta font-bold">
-                  {t('— KOLEKSI PILIHAN', '— FEATURED COLLECTION')}
-                </span>
-              </div>
-
-              {/* 3 Horizontal Editorial Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                
-                {/* Card 1: Ragam Motif */}
-                <Link
-                  to="/motifs"
-                  className="group block bg-[#0E1A27] rounded-lg border border-[#1E3246] overflow-hidden hover:border-terracotta/60 transition-all duration-300"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-[#17283A]">
-                    <img
-                      src="/assets/card-motif-clean.webp"
-                      alt="Ragam Motif Tenun Tradisional Pringgasela"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E1A27] via-transparent to-transparent opacity-80" />
-                  </div>
-                  <div className="p-3.5 flex items-center justify-between">
-                    <span className="font-serif text-sm font-semibold text-[#F8F5EF] group-hover:text-terracotta transition-colors">
-                      {t('Ragam Motif', 'Motif Varieties')}
+                  <span className="flex items-center gap-3.5">
+                    <MuseumLogo className="w-[18px] h-[18px] text-terracotta shrink-0" />
+                    <span className="font-sans text-[14px] font-medium text-charcoal group-hover:text-terracotta transition-colors">
+                      {t('Koleksi Tenun', 'Woven Collections')}
                     </span>
-                    <ArrowRight className="w-4 h-4 text-[#E8DCC9]/60 group-hover:text-terracotta group-hover:translate-x-1 transition-all" />
-                  </div>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-terracotta group-hover:translate-x-1 transition-transform" strokeWidth={1.75} />
                 </Link>
 
-                {/* Card 2: Alat Tenun */}
                 <Link
-                  to="/crafts"
-                  className="group block bg-[#0E1A27] rounded-lg border border-[#1E3246] overflow-hidden hover:border-terracotta/60 transition-all duration-300"
+                  to="/cultures"
+                  className="flex items-center justify-between py-2.5 group hover:bg-ivory/40 px-1 transition-colors"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-[#17283A]">
-                    <img
-                      src="/assets/card-loom-clean.webp"
-                      alt="Alat Tenun Tradisional Gedogan"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E1A27] via-transparent to-transparent opacity-80" />
-                  </div>
-                  <div className="p-3.5 flex items-center justify-between">
-                    <span className="font-serif text-sm font-semibold text-[#F8F5EF] group-hover:text-terracotta transition-colors">
-                      {t('Alat Tenun', 'Weaving Looms')}
+                  <span className="flex items-center gap-3.5">
+                    <BookOpen className="w-[18px] h-[18px] text-terracotta shrink-0" strokeWidth={1.75} />
+                    <span className="font-sans text-[14px] font-medium text-charcoal group-hover:text-terracotta transition-colors">
+                      {t('Kisah & Tradisi', 'Stories & Traditions')}
                     </span>
-                    <ArrowRight className="w-4 h-4 text-[#E8DCC9]/60 group-hover:text-terracotta group-hover:translate-x-1 transition-all" />
-                  </div>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-terracotta group-hover:translate-x-1 transition-transform" strokeWidth={1.75} />
                 </Link>
 
-                {/* Card 3: Bahan & Pewarna */}
                 <Link
-                  to="/crafts"
-                  className="group block bg-[#0E1A27] rounded-lg border border-[#1E3246] overflow-hidden hover:border-terracotta/60 transition-all duration-300"
+                  to="/history"
+                  className="flex items-center justify-between py-2.5 group hover:bg-ivory/40 px-1 transition-colors"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-[#17283A]">
-                    <img
-                      src="/assets/card-material-clean.webp"
-                      alt="Bahan Baku Kapas dan Pewarna Alami"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E1A27] via-transparent to-transparent opacity-80" />
-                  </div>
-                  <div className="p-3.5 flex items-center justify-between">
-                    <span className="font-serif text-sm font-semibold text-[#F8F5EF] group-hover:text-terracotta transition-colors">
-                      {t('Bahan & Pewarna', 'Materials & Dyes')}
+                  <span className="flex items-center gap-3.5">
+                    <Layers className="w-[18px] h-[18px] text-terracotta shrink-0" strokeWidth={1.75} />
+                    <span className="font-sans text-[14px] font-medium text-charcoal group-hover:text-terracotta transition-colors">
+                      {t('Arsip & Dokumentasi', 'Archives & Documentation')}
                     </span>
-                    <ArrowRight className="w-4 h-4 text-[#E8DCC9]/60 group-hover:text-terracotta group-hover:translate-x-1 transition-all" />
-                  </div>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-terracotta group-hover:translate-x-1 transition-transform" strokeWidth={1.75} />
                 </Link>
-
-              </div>
-
+              </nav>
             </div>
-
-            {/* Right Area: CATATAN KURATORIAL & Fringed Textile (5 Cols) */}
-            <div className="lg:col-span-5 relative flex items-center lg:border-l lg:border-[#1E3246]/70 lg:pl-8">
-              
-              <div className="space-y-4 max-w-md pr-12 lg:pr-20 z-10">
-                <span className="block text-xs uppercase tracking-[0.2em] text-terracotta font-bold">
-                  {t('CATATAN KURATORIAL', 'CURATORIAL NOTE')}
-                </span>
-
-                <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#F8F5EF] leading-snug">
-                  {t('Menelusuri Jejak Tenun Pringgasela', 'Tracing the Threads of Pringgasela Weaving')}
-                </h3>
-
-                <p className="text-xs sm:text-sm text-[#E8DCC9]/80 leading-relaxed font-sans">
-                  {t(
-                    'Sebuah upaya kuratorial untuk memahami tenun sebagai praktik budaya yang hidup—menghubungkan keterampilan, lingkungan, dan ingatan kolektif masyarakat.',
-                    'A curatorial endeavor to understand weaving as a living cultural practice—connecting craftsmanship, ecology, and the collective memory of the community.'
-                  )}
-                </p>
-
-                <div className="pt-1">
-                  <Link
-                    to="/about"
-                    className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-terracotta hover:text-terracotta-burnt transition-colors group cursor-pointer"
-                  >
-                    <span>{t('Baca Selengkapnya', 'Read Full Note')}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-terracotta group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Fringed Raw Textile Cloth Coming from Right Border */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-28 sm:w-36 lg:w-44 pointer-events-none select-none opacity-90 hidden sm:block">
-                <img
-                  src="/assets/curatorial-fringe-clean.webp"
-                  alt="Kain Tenun Tradisional Pringgasela dengan Rumbai"
-                  className="w-full h-auto object-contain drop-shadow-xl"
-                />
-              </div>
-
-            </div>
-
           </div>
-        </div>
-
-      </section>
-
-      {/* =========================================================================
-          3. FEATURED MOTIF ENCYCLOPEDIA (FROM APPWRITE CLOUD BACKEND)
-          ========================================================================= */}
-      <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#1E3246]/60 pb-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-terracotta font-semibold">
-              <Sparkles className="w-4 h-4 text-terracotta" />
-              <span>{t('Ensiklopedia Ragam Hias', 'Motif Encyclopedia')}</span>
-            </div>
-            <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#F8F5EF]">
-              {t('Motif Tenun Pilihan & Makna Filosofis', 'Selected Weaving Motifs & Philosophical Meanings')}
-            </h2>
-          </div>
-          <Link
-            to="/motifs"
-            className="inline-flex items-center gap-2 text-xs uppercase tracking-wider font-semibold text-terracotta hover:text-terracotta-burnt transition-colors"
-          >
-            <span>{t('Lihat Seluruh Motif (30+)', 'View All Motifs (30+)')}</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {motifs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {motifs.map((motif) => (
-              <MotifCard key={motif.$id} motif={motif} />
-            ))}
-          </div>
-        ) : (
-          <div className="p-8 rounded-xl bg-[#0E1A27] border border-[#1E3246] text-center space-y-3">
-            <Layers className="w-8 h-8 text-terracotta mx-auto opacity-70" />
-            <p className="text-sm text-[#E8DCC9]/80 font-serif">
-              {t('Memuat katalog motif tenun dari repositori budaya...', 'Loading motif catalog from cultural repository...')}
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* =========================================================================
-          4. TRADITIONAL CRAFTS & LIVING CULTURE (TENUN, SASAMBO, DZIKIR SAMAN)
-          ========================================================================= */}
-      <section className="bg-indigo-textile py-20 border-y border-[#1E3246]/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-          
-          {/* Crafts Section */}
-          <div className="space-y-8">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <span className="text-xs uppercase tracking-[0.2em] text-terracotta font-semibold block mb-2">
-                  {t('Kriya Tekstil Tradisional', 'Traditional Textile Crafts')}
-                </span>
-                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
-                  {t('Tenun Gedogan & Batik Sasambo', 'Gedogan Loom Weaving & Sasambo Batik')}
-                </h3>
-              </div>
-              <Link
-                to="/crafts"
-                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold text-terracotta hover:text-terracotta-burnt transition-colors"
-              >
-                <span>{t('Jelajahi Kerajinan', 'Explore Crafts')}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            {crafts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {crafts.map((craft) => (
-                  <CraftCard key={craft.$id} craft={craft} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Living Culture: Dzikir Saman */}
-          <div className="space-y-8 pt-8 border-t border-[#1E3246]/60">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <span className="text-xs uppercase tracking-[0.2em] text-terracotta font-semibold block mb-2">
-                  {t('Tradisi & Seni Pertunjukan Sakral', 'Sacred Traditions & Oral Arts')}
-                </span>
-                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8F5EF]">
-                  {t('Dzikir Saman Pringgasela & Upacara Adat', 'Pringgasela Dzikir Saman & Rites')}
-                </h3>
-              </div>
-              <Link
-                to="/cultures"
-                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold text-terracotta hover:text-terracotta-burnt transition-colors"
-              >
-                <span>{t('Lihat Tradisi Lengkap', 'View All Traditions')}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            {cultures.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {cultures.map((culture) => (
-                  <CultureCard key={culture.$id} culture={culture} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-
         </div>
       </section>
-
-      {/* =========================================================================
-          5. HISTORICAL TIMELINE TEASER & VILLAGE HERITAGE
-          ========================================================================= */}
-      <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <span className="text-xs uppercase tracking-[0.2em] text-terracotta font-semibold block">
-            {t('Babak Sejarah Peradaban', 'Historical Eras')}
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#F8F5EF]">
-            {t('Linimasa Sejarah Desa Pringgasela Selatan', 'South Pringgasela Historical Timeline')}
-          </h2>
-          <p className="text-xs sm:text-sm text-[#E8DCC9]/75 font-sans leading-relaxed">
-            {t(
-              'Menelusuri jejak perintisan sentra tenun sejak masa Kesultanan Selaparang hingga era kemandirian desa di lereng Gunung Rinjani.',
-              'Tracing the weaving settlement origins from the Selaparang Sultanate era to the modern autonomous village on Mount Rinjani’s slopes.'
-            )}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-          <div className="p-6 rounded-lg bg-[#0E1A27] border border-[#1E3246] space-y-3">
-            <span className="font-mono text-xs font-semibold text-terracotta">1820 – 1900</span>
-            <h4 className="font-serif text-lg font-bold text-[#F8F5EF]">
-              {t('Era Perintisan & Sentra Tenun Sasak', 'Pioneering Era & Sasak Weaving Center')}
-            </h4>
-            <p className="text-xs text-[#E8DCC9]/75 leading-relaxed font-sans">
-              {t(
-                'Lahirnya tradisi tenun gedogan rumahan yang berkembang pesat menjadi pusat kerajinan tekstil utama di Lombok bagian timur.',
-                'The rise of home backstrap loom traditions developing into the premier textile craft center of eastern Lombok.'
-              )}
-            </p>
-          </div>
-
-          <div className="p-6 rounded-lg bg-[#0E1A27] border border-[#1E3246] space-y-3">
-            <span className="font-mono text-xs font-semibold text-terracotta">1900 – 1980</span>
-            <h4 className="font-serif text-lg font-bold text-[#F8F5EF]">
-              {t('Era Ketahanan Budaya & Pewarna Alami', 'Cultural Resilience & Natural Dyes')}
-            </h4>
-            <p className="text-xs text-[#E8DCC9]/75 leading-relaxed font-sans">
-              {t(
-                'Pelestarian resep ramuan pewarna nabati tarum (indigo) dan kulit kayu mahoni di tengah masuknya benang pabrikan.',
-                'Preservation of ancestral botanical dye formulas amidst the influx of modern industrial threads.'
-              )}
-            </p>
-          </div>
-
-          <div className="p-6 rounded-lg bg-[#0E1A27] border border-[#1E3246] space-y-3">
-            <span className="font-mono text-xs font-semibold text-terracotta">1980 – Sekarang</span>
-            <h4 className="font-serif text-lg font-bold text-[#F8F5EF]">
-              {t('Era Preservasi Digital & Pengakuan Global', 'Digital Preservation & Global Acclaim')}
-            </h4>
-            <p className="text-xs text-[#E8DCC9]/75 leading-relaxed font-sans">
-              {t(
-                'Pencatatan arsip digital dan pemajuan kebudayaan desa untuk melindungi hak intelektual maestro penenun tradisional.',
-                'Digital archiving and community heritage governance protecting master weavers’ intellectual legacy.'
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="text-center pt-4">
-          <Link
-            to="/history"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-[#1E3246] bg-[#0E1A27] hover:bg-[#132334] text-[#F8F5EF] text-xs font-semibold uppercase tracking-wider transition-all"
-          >
-            <span>{t('Buka Linimasa Lengkap', 'Open Full Timeline')}</span>
-            <ArrowRight className="w-4 h-4 text-terracotta" />
-          </Link>
-        </div>
-      </section>
-
     </div>
   );
 };
