@@ -7,7 +7,7 @@ import { Craft } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Badge } from '../../components/common/Badge';
-import { getFallbackImage, getFileViewUrl } from '../../utils/media';
+import { MediaGalleryViewer } from '../../components/public/MediaGalleryViewer';
 
 export const CraftDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -73,11 +73,6 @@ export const CraftDetailPage: React.FC = () => {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const primaryMediaId = craft.media?.[0]?.mediaAssetId;
-  const mainImageUrl = primaryMediaId
-    ? getFileViewUrl(primaryMediaId)
-    : getFallbackImage('craft');
-
   return (
     <article className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
       
@@ -113,7 +108,15 @@ export const CraftDetailPage: React.FC = () => {
 
         <div className="flex items-center gap-2 pt-2">
           <Badge variant="secondary" size="md">
-            {craft.craftType === 'tenun' ? 'Tenun Tradisional Pringgasela' : craft.craftType}
+            {craft.craftType === 'tenun_gedogan'
+              ? 'Tenun Gedogan Pringgasela'
+              : craft.craftType === 'tenun_sesek'
+              ? 'Tenun Sesek'
+              : craft.craftType === 'batik_sasambo'
+              ? 'Batik Sasambo'
+              : craft.craftType === 'anyaman'
+              ? 'Anyaman Tradisional'
+              : craft.craftType}
           </Badge>
           {craft.isFeatured && (
             <Badge variant="accent" size="md">
@@ -130,8 +133,13 @@ export const CraftDetailPage: React.FC = () => {
 
       {/* Media & Summary Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-7 rounded-2xl border border-border overflow-hidden bg-sand-100 aspect-4/3 shadow-sm">
-          <img src={mainImageUrl} alt={title} className="w-full h-full object-cover" />
+        <div className="lg:col-span-7">
+          <MediaGalleryViewer
+            media={craft.media}
+            fallbackType="craft"
+            title={title}
+            aspectClass="aspect-4/3"
+          />
         </div>
 
         <aside className="lg:col-span-5 space-y-6">

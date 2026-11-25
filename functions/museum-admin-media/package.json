@@ -1,0 +1,13 @@
+{
+  "name": "museum-admin-media",
+  "version": "1.0.0",
+  "description": "Server-authoritative authenticated media upload and permission gateway for Museum Digital Pringgasela Selatan",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "node-appwrite": "^32.0.0"
+  }
+}

@@ -53,31 +53,31 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 surface-warm-ivory border-b border-softLinen/90">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-14">
-          <div className="flex items-center justify-between h-[68px] lg:h-[76px]">
+      <header className="sticky top-0 z-40 surface-warm-ivory border-b border-softLinen/80">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-8 xl:px-14">
+          <div className="flex items-center justify-between gap-4 h-[60px] lg:h-[64px]">
             {/* LEFT: Brand Mark + Title */}
             <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
-              <MuseumLogo className="w-7 h-7 sm:w-8 sm:h-8 lg:w-[34px] lg:h-[34px] text-terracotta group-hover:text-terracotta-hover transition-colors" />
+              <MuseumLogo className="w-7 h-7 sm:w-8 sm:h-8 xl:w-[34px] xl:h-[34px] text-terracotta group-hover:text-terracotta-hover transition-colors" />
               <div className="leading-none">
-                <span className="block font-serif text-[15px] sm:text-[18px] lg:text-[20px] font-semibold tracking-[0.04em] text-charcoal uppercase">
+                <span className="block font-serif text-[15px] sm:text-[17px] xl:text-[20px] font-semibold tracking-[0.04em] text-charcoal uppercase whitespace-nowrap">
                   Museum Digital
                 </span>
-                <span className="block font-sans text-[8.5px] sm:text-[9.5px] lg:text-[10px] font-medium tracking-[0.15em] sm:tracking-[0.22em] text-mutedBrown uppercase mt-1">
+                <span className="block font-sans text-[8.5px] sm:text-[9px] xl:text-[10px] font-medium tracking-[0.14em] sm:tracking-[0.2em] text-mutedBrown uppercase mt-1 whitespace-nowrap">
                   Pringgasela Selatan
                 </span>
               </div>
             </Link>
 
             {/* CENTER: Editorial Navigation */}
-            <nav className="hidden lg:flex items-center gap-8" aria-label={t('Navigasi Utama', 'Main Navigation')}>
+            <nav className="hidden lg:flex items-center gap-4 xl:gap-8" aria-label={t('Navigasi Utama', 'Main Navigation')}>
               {navLinks.map((link) => {
                 const active = isActive(link.matchPaths);
                 return (
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`relative py-1.5 text-[14px] tracking-[0.01em] transition-colors ${
+                    className={`relative py-1.5 text-[13px] xl:text-[14px] tracking-[0.01em] whitespace-nowrap transition-colors ${
                       active
                         ? 'text-terracotta font-medium after:content-[""] after:absolute after:left-0 after:right-0 after:-bottom-0.5 after:h-[1.5px] after:bg-terracotta'
                         : 'text-charcoal/85 hover:text-terracotta font-normal'
@@ -90,7 +90,7 @@ export const Navbar: React.FC = () => {
             </nav>
 
             {/* RIGHT: Language Switcher (ID | EN), Search Icon, Login CTA */}
-            <div className="hidden lg:flex items-center gap-5 shrink-0">
+            <div className="hidden lg:flex items-center gap-3 xl:gap-5 shrink-0">
               <div className="flex items-center text-[12.5px] tracking-wider select-none" role="group" aria-label={t('Pilihan Bahasa', 'Language Switcher')}>
                 <button
                   type="button"

@@ -5,4 +5,6 @@ export const APPWRITE_CONFIG = {
   storageBucketId: 'museum-media',
   adminTeamId: 'museum-admins',
   publicApiFunctionId: 'museum-public-api',
+  adminMediaFunctionId: 'museum-admin-media',
+  adminMediaGatewayUrl: 'https://museum-admin-media-pringgasela.appwrite.network',
 };

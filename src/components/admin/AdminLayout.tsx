@@ -31,6 +31,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
     { path: '/admin/cultures', label: 'Tradisi Budaya', icon: Shield },
     { path: '/admin/history', label: 'Sejarah Desa', icon: History },
     { path: '/admin/contributors', label: 'Tokoh & Pengrajin', icon: Users },
+    { path: '/admin/categories', label: 'Kategori Budaya', icon: Settings },
     { path: '/admin/media', label: 'Pustaka Media', icon: Image },
     { path: '/admin/users', label: 'Pengguna & Akses', icon: UserCheck },
     { path: '/admin/settings', label: 'Pengaturan Museum', icon: Settings },
@@ -43,7 +44,13 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const roleBadgeVariant = role === 'super_admin' ? 'accent' : role === 'admin_desa' ? 'primary' : 'secondary';
   const roleLabel =
-    role === 'super_admin' ? 'Super Admin' : role === 'admin_desa' ? 'Admin Desa' : 'Admin KKN';
+    role === 'super_admin'
+      ? 'Super Admin'
+      : role === 'admin_desa'
+      ? 'Admin Desa'
+      : role === 'admin_kkn'
+      ? 'Admin KKN'
+      : 'Tidak Terdaftar';
 
   return (
     <div className="min-h-screen bg-sand-100 flex flex-col md:flex-row font-sans">

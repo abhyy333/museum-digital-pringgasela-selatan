@@ -4,7 +4,7 @@ import { Lock, Mail, ArrowRight, AlertCircle, Shield, ArrowLeft } from 'lucide-r
 import { useAuth } from '../../context/AuthContext';
 
 export const AdminLoginPage: React.FC = () => {
-  const { login, user } = useAuth();
+  const { login, logout, user, role } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -12,12 +12,14 @@ export const AdminLoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If already logged in, redirect to admin
+  // Only redirect when user has an active confirmed membership role in museum-admins
   React.useEffect(() => {
-    if (user) {
+    if (user && role) {
       navigate('/admin');
+    } else if (user && role === null) {
+      setError('Akun ini terotentikasi namun tidak memiliki keanggotaan resmi dalam tim pengelola (museum-admins).');
     }
-  }, [user, navigate]);
+  }, [user, role, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,9 +72,20 @@ export const AdminLoginPage: React.FC = () => {
         <div className="bg-surface py-8 px-6 sm:px-10 rounded-2xl border border-border shadow-md space-y-6">
           
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+              {user && !role && (
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="px-2.5 py-1 rounded bg-rose-700 text-white font-semibold shrink-0"
+                >
+                  Keluar
+                </button>
+              )}
             </div>
           )}
 

@@ -76,6 +76,44 @@
             "buildSpecification": "s-2vcpu-2gb",
             "runtimeSpecification": "s-0.5vcpu-512mb",
             "deploymentRetention": 0
+        },
+        {
+            "$id": "museum-admin-media",
+            "name": "Museum Admin Media Gateway",
+            "runtime": "node-22",
+            "path": "functions/museum-admin-media",
+            "entrypoint": "src/main.js",
+            "execute": [
+                "any"
+            ],
+            "enabled": true,
+            "logging": false,
+            "events": [],
+            "schedule": "",
+            "interval": 0,
+            "timeout": 30,
+            "commands": "npm install",
+            "scopes": [
+                "files.read",
+                "files.write",
+                "databases.read",
+                "databases.write",
+                "tables.read",
+                "tables.write",
+                "rows.read",
+                "rows.write",
+                "teams.read"
+            ],
+            "installationId": "",
+            "providerRepositoryId": "",
+            "providerBranch": "",
+            "providerSilentMode": false,
+            "providerRootDirectory": "",
+            "providerBranches": [],
+            "providerPaths": [],
+            "buildSpecification": "s-2vcpu-2gb",
+            "runtimeSpecification": "s-0.5vcpu-512mb",
+            "deploymentRetention": 0
         }
     ],
     "tablesDB": [
@@ -1892,7 +1930,6 @@
         {
             "$id": "museum-media",
             "$permissions": [
-                "create(\"team:museum-admins\")",
                 "update(\"team:museum-admins/desa\")",
                 "update(\"team:museum-admins/owner\")",
                 "delete(\"team:museum-admins/owner\")"

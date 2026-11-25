@@ -37,9 +37,10 @@ export const CraftsPage: React.FC = () => {
 
   const craftTypes: Array<{ key: string; labelId: string; labelEn: string }> = [
     { key: 'all', labelId: 'Semua Tekstil', labelEn: 'All Textiles' },
-    { key: 'tenun', labelId: 'Tenun Tradisional', labelEn: 'Traditional Weaving' },
-    { key: 'batik', labelId: 'Batik Sasambo', labelEn: 'Sasambo Batik' },
-    { key: 'kerajinan_tangan', labelId: 'Kerajinan Tangan', labelEn: 'Handicrafts' },
+    { key: 'tenun_gedogan', labelId: 'Tenun Gedogan', labelEn: 'Gedogan Handloom' },
+    { key: 'tenun_sesek', labelId: 'Tenun Sesek', labelEn: 'Sesek Weaving' },
+    { key: 'batik_sasambo', labelId: 'Batik Sasambo', labelEn: 'Sasambo Batik' },
+    { key: 'anyaman', labelId: 'Anyaman & Kriya', labelEn: 'Handicrafts' },
   ];
 
   const filteredCrafts = useMemo(() => {

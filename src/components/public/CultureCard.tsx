@@ -4,7 +4,7 @@ import { ArrowRight, Moon } from 'lucide-react';
 import { Culture } from '../../types/schema';
 import { useLanguage } from '../../context/LanguageContext';
 import { Badge } from '../common/Badge';
-import { getFallbackImage, getFilePreviewUrl } from '../../utils/media';
+import { getFallbackImage, getFilePreviewUrl, resolveMediaFileId } from '../../utils/media';
 
 interface CultureCardProps {
   culture: Culture;
@@ -21,7 +21,8 @@ export const CultureCard: React.FC<CultureCardProps> = ({ culture }) => {
   const title = trans?.title || culture.slug;
   const summary = trans?.summary || trans?.description || '';
 
-  const primaryMediaId = culture.media?.[0]?.mediaAssetId;
+  const photoItem = culture.media?.find((m) => !m.mediaType || m.mediaType === 'image');
+  const primaryMediaId = resolveMediaFileId(photoItem);
   const imageUrl = primaryMediaId
     ? getFilePreviewUrl(primaryMediaId, { width: 600, height: 400 })
     : getFallbackImage('culture');

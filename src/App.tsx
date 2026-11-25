@@ -29,6 +29,7 @@ import { AdminHistoryPage } from './pages/admin/AdminHistoryPage';
 import { AdminContributorsPage } from './pages/admin/AdminContributorsPage';
 import { AdminMediaPage } from './pages/admin/AdminMediaPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { AdminCategoriesPage } from './pages/admin/AdminCategoriesPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 
 // Public Layout Wrapper
@@ -46,7 +47,7 @@ const PublicLayout: React.FC = () => {
 
 // Protected Admin Route Guard
 const ProtectedAdminRoute: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, role, loading, logout } = useAuth();
 
   if (loading) {
     return (
@@ -58,6 +59,34 @@ const ProtectedAdminRoute: React.FC = () => {
 
   if (!user) {
     return <Navigate to="/admin/login" replace />;
+  }
+
+  if (!role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-sand-100 px-4">
+        <div className="max-w-md w-full bg-surface rounded-2xl border border-border p-8 text-center shadow-sm space-y-4">
+          <h2 className="font-serif text-xl font-bold text-text">Akses Pengelola Ditolak</h2>
+          <p className="text-sm text-muted leading-relaxed">
+            Akun Anda ({user.email}) terautentikasi di Appwrite namun tidak terdaftar sebagai anggota
+            aktif tim kurator (<code className="text-xs bg-sand-200 px-1.5 py-0.5 rounded">museum-admins</code>).
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => logout()}
+              className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary-hover transition-colors"
+            >
+              Keluar dari Akun
+            </button>
+            <a
+              href="/"
+              className="px-4 py-2 border border-border text-sm text-text rounded-xl hover:bg-sand-100 transition-colors"
+            >
+              Ke Beranda Publik
+            </a>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -99,6 +128,7 @@ export const App: React.FC = () => {
               <Route path="history" element={<AdminHistoryPage />} />
               <Route path="contributors" element={<AdminContributorsPage />} />
               <Route path="media" element={<AdminMediaPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
             </Route>

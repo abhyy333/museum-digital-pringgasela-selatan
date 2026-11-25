@@ -20,7 +20,7 @@ import { WeavingMotif } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Badge } from '../../components/common/Badge';
-import { getFallbackImage, getFilePreviewUrl, getFileViewUrl } from '../../utils/media';
+import { MediaGalleryViewer } from '../../components/public/MediaGalleryViewer';
 
 export const MotifDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -28,7 +28,6 @@ export const MotifDetailPage: React.FC = () => {
   const [motif, setMotif] = useState<WeavingMotif | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -91,12 +90,7 @@ export const MotifDetailPage: React.FC = () => {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  // Compile media items
   const mediaList = motif.media || [];
-  const activeMediaId = mediaList[selectedImageIndex]?.mediaAssetId;
-  const mainImageUrl = activeMediaId
-    ? getFileViewUrl(activeMediaId)
-    : getFallbackImage('motif');
 
   return (
     <article className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
@@ -156,39 +150,12 @@ export const MotifDetailPage: React.FC = () => {
         
         {/* Main Cultural Imagery & Gallery (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-2xl border border-border overflow-hidden bg-sand-100 aspect-4/3 shadow-sm relative group">
-            <img
-              src={mainImageUrl}
-              alt={name}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
-            />
-          </div>
-
-          {/* Thumbnails Gallery if multiple media */}
-          {mediaList.length > 1 && (
-            <div className="flex items-center gap-3 overflow-x-auto pb-2">
-              {mediaList.map((m, idx) => {
-                const thumbUrl = getFilePreviewUrl(m.mediaAssetId, { width: 150, height: 100 });
-                const isSelected = selectedImageIndex === idx;
-                return (
-                  <button
-                    key={m.mediaAssetId || idx}
-                    onClick={() => setSelectedImageIndex(idx)}
-                    className={`relative rounded-xl border-2 overflow-hidden w-24 h-16 shrink-0 transition-all ${
-                      isSelected ? 'border-primary ring-2 ring-primary/20 scale-102' : 'border-border opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
-                    {m.isPatternDiagram && (
-                      <span className="absolute bottom-0 inset-x-0 bg-sand-900/80 text-[10px] text-surface font-sans text-center py-0.5">
-                        Diagram
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <MediaGalleryViewer
+            media={mediaList}
+            fallbackType="motif"
+            title={name}
+            aspectClass="aspect-4/3"
+          />
 
           <p className="text-xs text-muted italic text-center">
             {t(

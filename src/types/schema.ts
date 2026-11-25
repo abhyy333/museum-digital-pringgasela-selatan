@@ -6,13 +6,13 @@ export type PublicationStatus = 'draft' | 'in_review' | 'published' | 'archived'
 
 export type AdminRole = 'super_admin' | 'admin_desa' | 'admin_kkn';
 
-export type CraftType = 'tenun' | 'batik' | 'kerajinan_tangan' | 'lainnya';
+export type CraftType = 'tenun_gedogan' | 'tenun_sesek' | 'batik_sasambo' | 'anyaman' | 'lainnya';
 
 export type ContributorType = 'penenun' | 'pembatik' | 'tokoh_adat' | 'peneliti' | 'lainnya';
 
 export type CulturePeriodicity = 'rutin_mingguan' | 'tahunan' | 'siklus_hidup' | 'insidental';
 
-export type MediaType = 'photo' | 'video' | 'audio' | 'document';
+export type MediaType = 'image' | 'video' | 'audio' | 'document';
 
 export interface BaseEntity {
   $id: string;
@@ -53,6 +53,22 @@ export interface Contributor extends BaseEntity {
   bioEn?: string | null;
 }
 
+export interface ResolvedMediaItem {
+  mediaAssetId: string;
+  fileId?: string;
+  mediaType?: MediaType;
+  mimeType?: string;
+  captionId?: string | null;
+  captionEn?: string | null;
+  altTextId?: string | null;
+  altTextEn?: string | null;
+  photographer?: string | null;
+  sortOrder: number;
+  role?: 'cover' | 'gallery' | 'process' | 'close_up' | string;
+  isPatternDiagram?: boolean;
+  isAudioChant?: boolean;
+}
+
 export interface Craft extends BaseEntity {
   slug: string;
   categoryId: string;
@@ -64,7 +80,7 @@ export interface Craft extends BaseEntity {
   reviewedById?: string | null;
   translations?: CraftTranslation[];
   contributor?: Contributor | null;
-  media?: Array<{ role: string; sortOrder: number; mediaAssetId: string }>;
+  media?: ResolvedMediaItem[];
 }
 
 export interface CraftTranslation extends BaseEntity {
@@ -90,7 +106,7 @@ export interface WeavingMotif extends BaseEntity {
   reviewedById?: string | null;
   translations?: MotifTranslation[];
   contributor?: Contributor | null;
-  media?: Array<{ isPatternDiagram: boolean; sortOrder: number; mediaAssetId: string }>;
+  media?: ResolvedMediaItem[];
 }
 
 export interface MotifTranslation extends BaseEntity {
@@ -113,7 +129,8 @@ export interface Culture extends BaseEntity {
   createdById: string;
   contributorId?: string | null;
   translations?: CultureTranslation[];
-  media?: Array<{ isAudioChant: boolean; sortOrder: number; mediaAssetId: string }>;
+  contributor?: Contributor | null;
+  media?: ResolvedMediaItem[];
 }
 
 export interface CultureTranslation extends BaseEntity {
@@ -165,7 +182,7 @@ export interface MediaAsset extends BaseEntity {
 export interface CraftMedia extends BaseEntity {
   craftId: string;
   mediaAssetId: string;
-  role: 'primary_photo' | 'gallery' | 'process_step';
+  role: 'cover' | 'gallery' | 'process' | 'close_up';
   sortOrder: number;
 }
 

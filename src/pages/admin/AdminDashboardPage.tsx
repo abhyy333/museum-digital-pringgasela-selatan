@@ -6,16 +6,19 @@ import {
   Shield,
   Users,
   Image,
-  Clock,
   PlusCircle,
   FileText,
   Activity,
   CheckCircle2,
+  History,
+  FolderTree,
 } from 'lucide-react';
+import { Query } from 'appwrite';
 import { tablesDB } from '../../appwrite/client';
 import { APPWRITE_CONFIG } from '../../appwrite/config';
 import { useAuth } from '../../context/AuthContext';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { Badge } from '../../components/common/Badge';
 import { AuditLog } from '../../types/schema';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -24,6 +27,7 @@ export const AdminDashboardPage: React.FC = () => {
     motifs: 0,
     crafts: 0,
     cultures: 0,
+    history: 0,
     contributors: 0,
     media: 0,
     drafts: 0,
@@ -35,44 +39,52 @@ export const AdminDashboardPage: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const [motifsRes, craftsRes, cultsRes, contribsRes, mediaRes] = await Promise.allSettled([
-          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'weaving_motifs'),
-          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'crafts'),
-          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'cultures'),
-          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'contributors'),
-          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'media_assets'),
-        ]);
+        const [motifsRes, craftsRes, cultsRes, histRes, contribsRes, mediaRes] =
+          await Promise.allSettled([
+            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'weaving_motifs', [Query.limit(100)]),
+            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'crafts', [Query.limit(100)]),
+            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'cultures', [Query.limit(100)]),
+            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'village_history', [Query.limit(100)]),
+            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'contributors', [Query.limit(100)]),
+            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'media_assets', [Query.limit(100)]),
+          ]);
 
         const motifsTotal = motifsRes.status === 'fulfilled' ? motifsRes.value.total : 0;
         const craftsTotal = craftsRes.status === 'fulfilled' ? craftsRes.value.total : 0;
         const cultsTotal = cultsRes.status === 'fulfilled' ? cultsRes.value.total : 0;
+        const histTotal = histRes.status === 'fulfilled' ? histRes.value.total : 0;
         const contribsTotal = contribsRes.status === 'fulfilled' ? contribsRes.value.total : 0;
         const mediaTotal = mediaRes.status === 'fulfilled' ? mediaRes.value.total : 0;
 
-        // Count drafts
         let draftsCount = 0;
-        if (motifsRes.status === 'fulfilled') {
-          draftsCount += (motifsRes.value.rows || []).filter((r: any) => r.status === 'draft').length;
-        }
-        if (craftsRes.status === 'fulfilled') {
-          draftsCount += (craftsRes.value.rows || []).filter((r: any) => r.status === 'draft').length;
+        for (const res of [motifsRes, craftsRes, cultsRes, histRes]) {
+          if (res.status === 'fulfilled') {
+            draftsCount += (res.value.rows || []).filter(
+              (r: any) => r.status === 'draft' || r.status === 'in_review'
+            ).length;
+          }
         }
 
         setCounts({
           motifs: motifsTotal,
           crafts: craftsTotal,
           cultures: cultsTotal,
+          history: histTotal,
           contributors: contribsTotal,
           media: mediaTotal,
           drafts: draftsCount,
         });
 
-        // Fetch audit logs if permitted
-        try {
-          const logsRes = await tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'audit_logs');
-          setRecentLogs(logsRes.rows as unknown as AuditLog[]);
-        } catch (e) {
-          // not permitted for kkn role
+        if (canPublish) {
+          try {
+            const logsRes = await tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'audit_logs', [
+              Query.orderDesc('$createdAt'),
+              Query.limit(10),
+            ]);
+            setRecentLogs(logsRes.rows as unknown as AuditLog[]);
+          } catch {
+            setRecentLogs([]);
+          }
         }
       } finally {
         setLoading(false);
@@ -80,7 +92,7 @@ export const AdminDashboardPage: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [canPublish]);
 
   if (loading) {
     return <LoadingSpinner message="Menghimpun statistik museum..." size="lg" />;
@@ -88,7 +100,6 @@ export const AdminDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      
       {/* Welcome Banner */}
       <div className="bg-surface rounded-3xl border border-border p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xs">
         <div>
@@ -99,7 +110,9 @@ export const AdminDashboardPage: React.FC = () => {
             {user?.name || 'Administrator'}
           </h1>
           <p className="text-xs text-muted mt-1">
-            Peran Aktif: <strong className="text-primary capitalize">{role?.replace('_', ' ')}</strong> • Proyek ID: <code className="font-mono">{APPWRITE_CONFIG.projectId}</code>
+            Peran Aktif:{' '}
+            <strong className="text-primary capitalize">{role?.replace('_', ' ')}</strong> • Proyek
+            ID: <code className="font-mono">{APPWRITE_CONFIG.projectId}</code>
           </p>
         </div>
 
@@ -118,12 +131,18 @@ export const AdminDashboardPage: React.FC = () => {
             <Image className="w-4 h-4 text-muted" />
             <span>Pustaka Media</span>
           </Link>
+          <Link
+            to="/admin/categories"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-sand-50 hover:bg-sand-100 text-text text-xs font-semibold transition-colors"
+          >
+            <FolderTree className="w-4 h-4 text-muted" />
+            <span>Kategori</span>
+          </Link>
         </div>
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <div className="bg-surface rounded-2xl border border-border p-5 space-y-2">
           <div className="flex items-center justify-between text-primary">
             <BookOpen className="w-5 h-5" />
@@ -153,6 +172,15 @@ export const AdminDashboardPage: React.FC = () => {
 
         <div className="bg-surface rounded-2xl border border-border p-5 space-y-2">
           <div className="flex items-center justify-between text-primary">
+            <History className="w-5 h-5" />
+            <span className="text-xs font-bold font-mono">HST</span>
+          </div>
+          <p className="text-2xl font-serif font-bold text-text">{counts.history}</p>
+          <p className="text-xs text-muted font-medium">Babak Sejarah</p>
+        </div>
+
+        <div className="bg-surface rounded-2xl border border-border p-5 space-y-2">
+          <div className="flex items-center justify-between text-primary">
             <Users className="w-5 h-5" />
             <span className="text-xs font-bold font-mono">CTR</span>
           </div>
@@ -166,7 +194,7 @@ export const AdminDashboardPage: React.FC = () => {
             <span className="text-xs font-bold font-mono">DFT</span>
           </div>
           <p className="text-2xl font-serif font-bold text-text">{counts.drafts}</p>
-          <p className="text-xs text-muted font-medium">Draf / Menunggu</p>
+          <p className="text-xs text-muted font-medium">Draf / Review</p>
         </div>
 
         <div className="bg-surface rounded-2xl border border-border p-5 space-y-2">
@@ -177,7 +205,6 @@ export const AdminDashboardPage: React.FC = () => {
           <p className="text-2xl font-serif font-bold text-text">{counts.media}</p>
           <p className="text-xs text-muted font-medium">Aset Media</p>
         </div>
-
       </div>
 
       {/* Permissions & Security Summary */}
@@ -208,6 +235,69 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Recent Audit Logs (Admin Desa & Super Admin) */}
+      {canPublish && (
+        <div className="bg-surface rounded-2xl border border-border overflow-hidden shadow-xs">
+          <div className="px-6 py-4 border-b border-border bg-sand-50/70 flex items-center justify-between">
+            <h3 className="font-serif text-base font-bold text-text flex items-center gap-2">
+              <Activity className="w-4 h-4 text-primary" />
+              <span>Log Aktivitas Kurasi Terbaru</span>
+            </h3>
+            <span className="text-[11px] text-muted">{recentLogs.length} rekaman terakhir</span>
+          </div>
+          {recentLogs.length === 0 ? (
+            <div className="p-6 text-xs text-muted text-center">
+              Belum ada catatan aktivitas di tabel <code className="font-mono">audit_logs</code>.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-sand-50 border-b border-border text-muted font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-6 py-3">Waktu</th>
+                    <th className="px-6 py-3">Aktor</th>
+                    <th className="px-6 py-3">Aksi</th>
+                    <th className="px-6 py-3">Entitas</th>
+                    <th className="px-6 py-3">Ringkasan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {recentLogs.map((log) => (
+                    <tr key={log.$id} className="hover:bg-sand-50/50">
+                      <td className="px-6 py-3 font-mono text-[11px] text-muted">
+                        {log.$createdAt
+                          ? new Date(log.$createdAt).toLocaleString('id-ID')
+                          : '-'}
+                      </td>
+                      <td className="px-6 py-3 font-mono text-text">{log.actorUserId}</td>
+                      <td className="px-6 py-3">
+                        <Badge
+                          variant={
+                            log.action === 'delete'
+                              ? 'warning'
+                              : log.action === 'publish'
+                              ? 'success'
+                              : 'neutral'
+                          }
+                          size="sm"
+                        >
+                          {log.action}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-3 font-mono text-muted">
+                        {log.entityType} ({log.entityId})
+                      </td>
+                      <td className="px-6 py-3 text-[11px] text-muted truncate max-w-xs">
+                        {log.changesJson || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

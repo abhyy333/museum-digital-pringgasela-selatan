@@ -4,7 +4,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { WeavingMotif } from '../../types/schema';
 import { useLanguage } from '../../context/LanguageContext';
 import { Badge } from '../common/Badge';
-import { getFallbackImage, getFilePreviewUrl } from '../../utils/media';
+import { getFallbackImage, getFilePreviewUrl, resolveMediaFileId } from '../../utils/media';
 
 interface MotifCardProps {
   motif: WeavingMotif;
@@ -24,7 +24,8 @@ export const MotifCard: React.FC<MotifCardProps> = ({ motif }) => {
   const visualDesc = trans?.visualDescription || '';
 
   // Find primary media or pattern diagram
-  const primaryMediaId = motif.media?.[0]?.mediaAssetId;
+  const photoItem = motif.media?.find((m) => !m.mediaType || m.mediaType === 'image');
+  const primaryMediaId = resolveMediaFileId(photoItem);
   const imageUrl = primaryMediaId
     ? getFilePreviewUrl(primaryMediaId, { width: 600, height: 400 })
     : getFallbackImage('motif');

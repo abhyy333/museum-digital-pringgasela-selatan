@@ -36,7 +36,7 @@ const DEFAULT_FEATURED_CATEGORIES: FeaturedCollectionItem[] = [
     imageSrc: '/images/collections/alat-tenun.webp',
     altId: 'Teropong kayu alat tenun tradisional di atas kain tenun indigo dan terakota',
     altEn: 'Carved wooden boat shuttle resting over handwoven indigo and terracotta textile',
-    to: '/crafts?craftType=tenun',
+    to: '/crafts?craftType=tenun_gedogan',
     matchSlugs: ['alat-tenun', 'kerajinan-tenun'],
   },
   {
@@ -92,65 +92,62 @@ export const HomePage: React.FC = () => {
   return (
     <div className="relative overflow-x-clip">
       {/* ================================================================= */}
-      {/* DECORATIVE CULTURAL MARGINS (Subtle Woven Selvedge & Linework)    */}
+      {/* DECORATIVE TEXTILE MARGINS (Real Frayed Indigo Cotton Weaves)     */}
       {/* ================================================================= */}
 
-      {/* Far-Right Authentic Deep Indigo Songket Selvedge Strip */}
+      {/* Far-Right Upper Authentic East Lombok Indigo Woven Textile Strip (Frayed weft + full woven diamond column) */}
       <div
-        className="pointer-events-none hidden xl:block absolute top-0 right-0 w-[52px] 2xl:w-[68px] h-[640px] z-30 overflow-hidden select-none"
+        className="pointer-events-none absolute top-0 right-0 w-[14px] sm:w-[22px] lg:w-[50px] xl:w-[84px] 2xl:w-[98px] h-[210px] sm:h-[290px] lg:h-[470px] xl:h-[580px] z-30 overflow-hidden select-none mix-blend-multiply opacity-60 lg:opacity-[0.94]"
         aria-hidden="true"
-      >
-        <img
-          src="/images/textures/indigo-textile.webp"
-          alt=""
-          className="w-full h-full object-cover object-center drop-shadow-[-4px_4px_10px_rgba(37,34,31,0.18)]"
-        />
-        <div
-          className="absolute inset-x-0 bottom-0 h-28"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(243,238,229,0), rgba(243,238,229,1))',
-          }}
-        />
-      </div>
+        style={{
+          backgroundImage: "url('/images/patterns/woven-border-right.webp')",
+          backgroundSize: '100% auto',
+          backgroundPosition: 'top right',
+          backgroundRepeat: 'repeat-y',
+          WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, #000 74%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, #000 0%, #000 74%, transparent 100%)',
+        }}
+      />
 
-      {/* Far-Left Delicate Indigo Woven Geometry Margin Filigree */}
+      {/* Far-Right Lower Subtle Aged Selvedge Thread Accent beside Curatorial */}
       <div
-        className="pointer-events-none hidden xl:block absolute top-0 left-0 w-[22px] 2xl:w-[26px] h-[360px] z-10 overflow-hidden select-none opacity-45"
+        className="pointer-events-none hidden xl:block absolute bottom-[85px] right-0 w-[26px] 2xl:w-[32px] h-[240px] z-10 overflow-hidden select-none opacity-45 scale-x-[-1] mix-blend-multiply"
         aria-hidden="true"
-      >
-        <svg viewBox="0 0 28 360" className="w-full h-full text-indigoTextile">
-          <defs>
-            <pattern id="leftWarpFiligree" width="28" height="44" patternUnits="userSpaceOnUse">
-              <path
-                d="M14,2 L24,12 L14,22 L4,12 Z M14,8 L18,12 L14,16 L10,12 Z M14,22 L24,32 L14,42 L4,32 Z M2,0 L2,44 M25,0 L25,44"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-              />
-            </pattern>
-          </defs>
-          <rect width="28" height="360" fill="url(#leftWarpFiligree)" />
-        </svg>
-        <div
-          className="absolute inset-x-0 bottom-0 h-24"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(243,238,229,0), rgba(243,238,229,1))',
-          }}
-        />
-      </div>
+        style={{
+          backgroundImage: "url('/images/patterns/woven-border-left.webp')",
+          backgroundSize: '100% auto',
+          backgroundPosition: 'bottom left',
+          backgroundRepeat: 'repeat-y',
+        }}
+      />
 
-      {/* Faint archival diamond seal accent peeking near Koleksi Unggulan left margin */}
-      <svg
+      {/* Far-Left Upper Faded Indigo Cotton Selvedge Strip (Replaces flat SVG pattern) */}
+      <div
+        className="pointer-events-none hidden lg:block absolute top-0 left-0 w-[28px] xl:w-[36px] 2xl:w-[44px] h-[340px] xl:h-[390px] z-10 overflow-hidden select-none mix-blend-multiply opacity-78"
         aria-hidden="true"
-        viewBox="0 0 120 140"
-        className="pointer-events-none hidden lg:block absolute top-[415px] -left-7 w-24 h-28 text-indigoTextile opacity-[0.07] z-0"
-      >
-        <g fill="none" stroke="currentColor" strokeWidth="2.2">
-          <polygon points="60,8 106,54 60,100 14,54" />
-          <polygon points="60,24 90,54 60,84 30,54" />
-          <polygon points="60,40 74,54 60,68 46,54" />
-        </g>
-      </svg>
+        style={{
+          backgroundImage: "url('/images/patterns/woven-border-left.webp')",
+          backgroundSize: '100% auto',
+          backgroundPosition: 'top left',
+          backgroundRepeat: 'repeat-y',
+          WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, #000 76%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, #000 0%, #000 76%, transparent 100%)',
+        }}
+      />
+
+      {/* Far-Left Lower Frayed Indigo Woven Detail beside Collections & Curatorial */}
+      <div
+        className="pointer-events-none hidden xl:block absolute top-[540px] left-0 w-[24px] 2xl:w-[30px] h-[300px] z-10 overflow-hidden select-none mix-blend-multiply opacity-55"
+        aria-hidden="true"
+        style={{
+          backgroundImage: "url('/images/patterns/woven-border-left.webp')",
+          backgroundSize: '100% auto',
+          backgroundPosition: 'bottom left',
+          backgroundRepeat: 'repeat-y',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%)',
+        }}
+      />
 
       {/* ================================================================= */}
       {/* SECTION 2: HERO — TENUN, TRADISI, DAN KEHIDUPAN MASYARAKAT        */}
@@ -158,16 +155,16 @@ export const HomePage: React.FC = () => {
       <ArchiveHeroSection />
 
       {/* Organic Horizontal Archival Paper Seam Divider */}
-      <div className="relative z-10 w-full h-[12px] overflow-hidden -mt-4 pointer-events-none" aria-hidden="true">
-        <svg viewBox="0 0 1440 16" preserveAspectRatio="none" className="w-full h-full">
+      <div className="relative z-10 w-full h-[10px] overflow-hidden -mt-1.5 pointer-events-none" aria-hidden="true">
+        <svg viewBox="0 0 1440 14" preserveAspectRatio="none" className="w-full h-full">
           <path
-            d="M0,10 Q180,4 360,9 T720,7 T1080,10 T1440,6 L1440,16 L0,16 Z"
-            fill="rgba(233, 223, 208, 0.35)"
+            d="M0,9 Q180,3 360,8 T720,6 T1080,9 T1440,5 L1440,14 L0,14 Z"
+            fill="rgba(235, 227, 212, 0.48)"
           />
           <path
-            d="M0,10 Q180,4 360,9 T720,7 T1080,10 T1440,6"
+            d="M0,9 Q180,3 360,8 T720,6 T1080,9 T1440,5"
             fill="none"
-            stroke="#C9B69C"
+            stroke="#C7B398"
             strokeWidth="1"
             strokeOpacity="0.65"
           />
@@ -178,19 +175,19 @@ export const HomePage: React.FC = () => {
       {/* SECTION 3: KOLEKSI UNGGULAN — RAGAM WARISAN PRINGGASELA           */}
       {/* ================================================================= */}
       <section
-        className="relative z-10 py-5 sm:py-6 lg:py-5"
+        className="relative z-10 surface-aged-collections py-4 sm:py-5 lg:py-3.5 xl:py-4"
         aria-labelledby="collections-heading"
       >
-        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-14">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-5 items-start">
+        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12 xl:px-14">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-5 items-start">
             {/* Left Intro Column (Cols 1-3) */}
-            <div className="lg:col-span-3 space-y-2">
+            <div className="lg:col-span-3 space-y-1.5">
               <span className="block font-sans text-[11px] font-medium uppercase tracking-[0.16em] text-terracotta">
                 {t('Koleksi Unggulan', 'Featured Collections')}
               </span>
               <h2
                 id="collections-heading"
-                className="font-serif text-[26px] sm:text-[29px] xl:text-[32px] font-semibold text-charcoal leading-[1.12] tracking-[-0.01em]"
+                className="font-serif text-[25px] sm:text-[28px] xl:text-[31px] font-semibold text-charcoal leading-[1.12] tracking-[-0.01em]"
               >
                 {locale === 'id' ? (
                   <>
@@ -204,7 +201,7 @@ export const HomePage: React.FC = () => {
                   </>
                 )}
               </h2>
-              <p className="font-sans text-[13px] leading-[1.55] text-[#4D443B] pt-0.5 max-w-[270px]">
+              <p className="font-sans text-[12.5px] xl:text-[13px] leading-[1.52] text-[#4D443B] pt-0.5 max-w-[270px]">
                 {t(
                   'Pilihan koleksi yang merekam keahlian, nilai, dan identitas budaya masyarakat Pringgasela Selatan.',
                   'Curated collections documenting craftsmanship, ancestral philosophy, and cultural identity of South Pringgasela.'
@@ -213,7 +210,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Right 4 Category Plates in One Desktop Row (Cols 4-12) */}
-            <div className="lg:col-span-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-4 xl:gap-5">
+            <div className="lg:col-span-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-4 xl:gap-5">
               {collectionCards.map((cat) => (
                 <Link
                   key={cat.key}
@@ -221,7 +218,7 @@ export const HomePage: React.FC = () => {
                   className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
                 >
                   {/* Image Plate */}
-                  <div className="aspect-[16/10] w-full overflow-hidden border border-naturalBeige/80 bg-aged rounded-[2px]">
+                  <div className="aspect-[16/10] w-full overflow-hidden border border-naturalBeige/75 bg-aged rounded-[2px]">
                     <img
                       src={cat.imageSrc}
                       alt={t(cat.altId, cat.altEn)}
@@ -234,7 +231,7 @@ export const HomePage: React.FC = () => {
 
                   {/* Minimalist Serif Caption + Terracotta Arrow */}
                   <div className="pt-2 flex items-center justify-between gap-2">
-                    <h3 className="font-serif text-[14px] lg:text-[13.5px] xl:text-[15px] font-semibold text-charcoal group-hover:text-terracotta transition-colors leading-snug">
+                    <h3 className="font-serif text-[13.5px] xl:text-[14.5px] font-semibold text-charcoal group-hover:text-terracotta transition-colors leading-snug">
                       {t(cat.titleId, cat.titleEn)}
                     </h3>
                     <ArrowRight
@@ -250,18 +247,18 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* Irregular Organic Archival Paper Deckle Edge Above Kuratorial Band */}
-      <div className="relative z-10 w-full h-[18px] overflow-hidden -mb-[1px] pointer-events-none" aria-hidden="true">
-        <svg viewBox="0 0 1440 20" preserveAspectRatio="none" className="w-full h-full">
+      <div className="relative z-10 w-full h-[14px] overflow-hidden surface-aged-collections -mb-[1px] pointer-events-none" aria-hidden="true">
+        <svg viewBox="0 0 1440 16" preserveAspectRatio="none" className="w-full h-full">
           <path
-            d="M0,14 L110,10 L240,15 L390,7 L530,12 L675,5 L820,11 L975,6 L1120,13 L1290,8 L1440,12 L1440,20 L0,20 Z"
-            fill="rgba(233, 223, 208, 0.56)"
+            d="M0,11 L110,7 L240,12 L390,4 L530,9 L675,3 L820,8 L975,4 L1120,10 L1290,5 L1440,9 L1440,16 L0,16 Z"
+            fill="rgba(229, 217, 198, 0.54)"
           />
           <path
-            d="M0,14 L110,10 L240,15 L390,7 L530,12 L675,5 L820,11 L975,6 L1120,13 L1290,8 L1440,12"
+            d="M0,11 L110,7 L240,12 L390,4 L530,9 L675,3 L820,8 L975,4 L1120,10 L1290,5 L1440,9"
             fill="none"
-            stroke="#C9B69C"
+            stroke="#C7B398"
             strokeWidth="1"
-            strokeOpacity="0.8"
+            strokeOpacity="0.82"
           />
         </svg>
       </div>
@@ -271,10 +268,10 @@ export const HomePage: React.FC = () => {
       {/* ================================================================= */}
       <section
         id="kuratorial"
-        className="relative z-10 surface-aged-paper py-6 sm:py-8 lg:py-6 border-b border-softLinen/90"
+        className="relative z-10 surface-aged-paper py-5 sm:py-6 lg:py-5 border-b border-softLinen/90"
         aria-labelledby="curatorial-heading"
       >
-        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-14">
+        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12 xl:px-14">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 lg:gap-6 items-center">
             {/* LEFT: Kuratorial Editorial Statement (Cols 1-3) */}
             <div className="lg:col-span-4 xl:col-span-3 space-y-2.5">

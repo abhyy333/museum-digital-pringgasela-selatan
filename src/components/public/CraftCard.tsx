@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { Craft } from '../../types/schema';
 import { useLanguage } from '../../context/LanguageContext';
 import { Badge } from '../common/Badge';
-import { getFallbackImage, getFilePreviewUrl } from '../../utils/media';
+import { getFallbackImage, getFilePreviewUrl, resolveMediaFileId } from '../../utils/media';
 
 interface CraftCardProps {
   craft: Craft;
@@ -21,19 +21,21 @@ export const CraftCard: React.FC<CraftCardProps> = ({ craft }) => {
   const title = trans?.title || craft.slug;
   const summary = trans?.summary || trans?.technique || '';
 
-  const primaryMediaId = craft.media?.[0]?.mediaAssetId;
+  const photoItem = craft.media?.find((m) => !m.mediaType || m.mediaType === 'image');
+  const primaryMediaId = resolveMediaFileId(photoItem);
   const imageUrl = primaryMediaId
     ? getFilePreviewUrl(primaryMediaId, { width: 600, height: 400 })
     : getFallbackImage('craft');
 
   const typeLabels: Record<string, { id: string; en: string }> = {
-    tenun: { id: 'Tenun Tradisional', en: 'Traditional Weaving' },
-    batik: { id: 'Batik Sasambo', en: 'Sasambo Batik' },
-    kerajinan_tangan: { id: 'Kerajinan Tangan', en: 'Handicraft' },
+    tenun_gedogan: { id: 'Tenun Gedogan', en: 'Gedogan Handloom' },
+    tenun_sesek: { id: 'Tenun Sesek', en: 'Sesek Weaving' },
+    batik_sasambo: { id: 'Batik Sasambo', en: 'Sasambo Batik' },
+    anyaman: { id: 'Anyaman & Kriya', en: 'Woven Craft' },
     lainnya: { id: 'Karya Tekstil', en: 'Textile Artifact' },
   };
 
-  const typeLabel = typeLabels[craft.craftType] || typeLabels.tenun;
+  const typeLabel = typeLabels[craft.craftType] || typeLabels.tenun_gedogan;
 
   return (
     <article className="group bg-surface/95 rounded-[3px] border border-naturalBeige/80 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col">

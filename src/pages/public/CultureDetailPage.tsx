@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Globe, Moon, Sparkles, Scroll, Heart } from 'lucide-react';
+import { ArrowLeft, Share2, Globe, Moon, Sparkles, Scroll, Heart, Music, User, MapPin } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
 import { Culture } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Badge } from '../../components/common/Badge';
-import { getFallbackImage, getFileViewUrl } from '../../utils/media';
+import { MediaGalleryViewer } from '../../components/public/MediaGalleryViewer';
+import { getFileViewUrl, resolveMediaFileId } from '../../utils/media';
 
 export const CultureDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -73,10 +74,9 @@ export const CultureDetailPage: React.FC = () => {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const primaryMediaId = culture.media?.[0]?.mediaAssetId;
-  const mainImageUrl = primaryMediaId
-    ? getFileViewUrl(primaryMediaId)
-    : getFallbackImage('culture');
+  const audioChants = (culture.media || []).filter(
+    (m) => m.isAudioChant || m.mediaType === 'audio'
+  );
 
   return (
     <article className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
@@ -126,10 +126,69 @@ export const CultureDetailPage: React.FC = () => {
         </h1>
       </div>
 
-      {/* Main Image */}
-      <div className="max-w-4xl rounded-2xl border border-border overflow-hidden bg-sand-100 aspect-16/9 shadow-sm">
-        <img src={mainImageUrl} alt={title} className="w-full h-full object-cover" />
+      {/* Main Media Gallery */}
+      <div className="max-w-4xl">
+        <MediaGalleryViewer
+          media={culture.media}
+          fallbackType="culture"
+          title={title}
+          aspectClass="aspect-16/9"
+        />
       </div>
+
+      {/* Dedicated Audio Chant Player if Tradition Includes Audio Recordings */}
+      {audioChants.length > 0 && (
+        <div className="max-w-4xl bg-sand-50 border border-border rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-secondary">
+            <Music className="w-4 h-4 text-primary" />
+            <span>{t('Rekaman Audio / Pelafalan Adat', 'Traditional Audio Chants & Recordings')}</span>
+          </div>
+          <div className="space-y-3">
+            {audioChants.map((audioItem, i) => {
+              const fid = resolveMediaFileId(audioItem);
+              if (!fid) return null;
+              const label =
+                locale === 'en'
+                  ? audioItem.captionEn || audioItem.captionId
+                  : audioItem.captionId || audioItem.captionEn;
+              return (
+                <div key={`${fid}-${i}`} className="bg-surface p-4 rounded-xl border border-border space-y-2">
+                  <p className="text-sm font-medium text-text">
+                    {label || `${title} — Audio #${i + 1}`}
+                  </p>
+                  <audio controls preload="metadata" className="w-full" src={getFileViewUrl(fid)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Contributor / Cultural Informant Card */}
+      {culture.contributor && (
+        <div className="max-w-4xl bg-surface rounded-2xl border border-border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-secondary uppercase tracking-wider">
+              <User className="w-3.5 h-3.5 text-primary" />
+              <span>{t('Narasumber / Pelaku Adat', 'Cultural Informant')}</span>
+            </div>
+            <p className="font-serif text-lg font-bold text-text">{culture.contributor.name}</p>
+            {culture.contributor.dusun && (
+              <p className="text-xs text-muted flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-accent" />
+                {culture.contributor.dusun}, Pringgasela Selatan
+              </p>
+            )}
+          </div>
+          {culture.contributor.bioId && (
+            <p className="text-xs text-text/80 sm:max-w-md leading-relaxed">
+              {locale === 'en'
+                ? culture.contributor.bioEn || culture.contributor.bioId
+                : culture.contributor.bioId}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* In-Depth Cultural Sections */}
       <div className="max-w-4xl space-y-10">

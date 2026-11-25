@@ -1,6 +1,7 @@
-import { Client, TablesDB, Query } from 'node-appwrite';
+import { Client, TablesDB, Storage, Query } from 'node-appwrite';
 
 const DB_ID = process.env.DATABASE_ID || 'museum_digital';
+const BUCKET_ID = process.env.STORAGE_BUCKET_ID || 'museum-media';
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6affdaa0003c416ecdb0';
 
@@ -38,18 +39,86 @@ function filterObject(obj, allowedKeys) {
   return filtered;
 }
 
+function isPublicStorageFile(fileMeta) {
+  const perms = fileMeta?.$permissions || [];
+  return perms.some((p) => typeof p === 'string' && p.trim() === 'read("any")');
+}
+
+/**
+ * Resolves junction media rows to safe public media objects, strictly filtering out
+ * private files, orphan Storage files without media_assets metadata, and missing files.
+ */
+async function resolvePublicMedia(tablesDB, storage, junctionRows, extraMapper) {
+  const resolved = [];
+  for (const rel of junctionRows || []) {
+    try {
+      const asset = await tablesDB.getRow(DB_ID, 'media_assets', rel.mediaAssetId);
+      if (asset.bucketId && asset.bucketId !== BUCKET_ID) continue;
+      const storageId = asset.fileId || rel.mediaAssetId;
+
+      // Verify file exists in Storage AND has explicit read("any") permission
+      const fileMeta = await storage.getFile(BUCKET_ID, storageId);
+      if (!isPublicStorageFile(fileMeta)) continue;
+
+      const cleanAsset = filterObject(asset, WHITELISTS.media_asset);
+      resolved.push({
+        ...cleanAsset,
+        mediaAssetId: rel.mediaAssetId,
+        fileId: storageId,
+        sortOrder: rel.sortOrder ?? 0,
+        ...extraMapper(rel),
+      });
+    } catch (e) {
+      // Omit missing metadata, deleted storage files, or private media without failing API response
+    }
+  }
+  return resolved;
+}
+
+/**
+ * Sanitizes contributor record and ensures photoFileId is ONLY exposed if it has
+ * valid media_assets metadata AND explicit public read("any") in Storage.
+ */
+async function sanitizeContributor(tablesDB, storage, rawContrib) {
+  if (!rawContrib) return null;
+  const clean = filterObject(rawContrib, WHITELISTS.contributor);
+  if (clean.photoFileId) {
+    try {
+      let hasMetadata = false;
+      try {
+        await tablesDB.getRow(DB_ID, 'media_assets', clean.photoFileId);
+        hasMetadata = true;
+      } catch {
+        const match = await tablesDB.listRows(DB_ID, 'media_assets', [
+          Query.equal('fileId', clean.photoFileId),
+          Query.limit(1),
+        ]);
+        hasMetadata = Boolean(match.rows && match.rows.length > 0);
+      }
+      if (!hasMetadata) {
+        clean.photoFileId = null;
+      } else {
+        const fileMeta = await storage.getFile(BUCKET_ID, clean.photoFileId);
+        if (!isPublicStorageFile(fileMeta)) {
+          clean.photoFileId = null;
+        }
+      }
+    } catch {
+      clean.photoFileId = null;
+    }
+  }
+  return clean;
+}
+
 export default async ({ req, res, log, error }) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return res.text('', 200, CORS_HEADERS);
   }
 
-  // Parse path, method, and query parameters
   let path = (req.path || '/').trim();
   let method = (req.method || 'GET').toUpperCase();
   let query = req.query || {};
 
-  // Support invocation payload via function execution endpoint
   if (req.body && typeof req.body === 'object') {
     if (req.body.path) path = req.body.path;
     if (req.body.method) method = (req.body.method || method).toUpperCase();
@@ -65,7 +134,6 @@ export default async ({ req, res, log, error }) => {
     }
   }
 
-  // Normalize path segments: /crafts/subahnale -> ['crafts', 'subahnale']
   const cleanPath = path.replace(/^\/+|\/+$/g, '');
   const segments = cleanPath ? cleanPath.split('/') : [];
   const root = segments[0] || 'health';
@@ -73,7 +141,6 @@ export default async ({ req, res, log, error }) => {
 
   log(`[Public API] ${method} /${cleanPath} (root=${root}, param=${param})`);
 
-  // Initialize Appwrite Client with Server SDK
   const client = new Client()
     .setEndpoint(ENDPOINT)
     .setProject(PROJECT_ID);
@@ -84,6 +151,7 @@ export default async ({ req, res, log, error }) => {
   }
 
   const tablesDB = new TablesDB(client);
+  const storage = new Storage(client);
 
   try {
     // ------------------------------------------------------------------------
@@ -93,7 +161,7 @@ export default async ({ req, res, log, error }) => {
       return res.json({
         status: 'ok',
         service: 'Museum Digital Pringgasela Selatan Public Content API',
-        version: '1.0.0',
+        version: '1.2.0',
         environment: 'production',
         timestamp: new Date().toISOString(),
         endpoints: [
@@ -112,11 +180,10 @@ export default async ({ req, res, log, error }) => {
     }
 
     // ------------------------------------------------------------------------
-    // 1. CRAFTS (KERAJINAN TRADISIONAL / TENUN / BATIK)
+    // 1. CRAFTS
     // ------------------------------------------------------------------------
     if (root === 'crafts') {
       if (param) {
-        // Detail by slug
         const craftRes = await tablesDB.listRows(DB_ID, 'crafts', [
           Query.equal('slug', param),
           Query.equal('status', 'published'),
@@ -129,36 +196,28 @@ export default async ({ req, res, log, error }) => {
 
         const craft = filterObject(craftRes.rows[0], WHITELISTS.craft);
 
-        // Fetch translations
         const transRes = await tablesDB.listRows(DB_ID, 'craft_translations', [
           Query.equal('craftId', craft.$id),
         ]);
-        craft.translations = (transRes.rows || []).map(r => filterObject(r, WHITELISTS.craft_translation));
+        craft.translations = (transRes.rows || []).map((r) => filterObject(r, WHITELISTS.craft_translation));
 
-        // Fetch contributor if linked
         if (craft.contributorId) {
           try {
             const contribRes = await tablesDB.getRow(DB_ID, 'contributors', craft.contributorId);
-            craft.contributor = filterObject(contribRes, WHITELISTS.contributor);
+            craft.contributor = await sanitizeContributor(tablesDB, storage, contribRes);
           } catch (e) {
             craft.contributor = null;
           }
         }
 
-        // Fetch media relations
         const mediaRelRes = await tablesDB.listRows(DB_ID, 'craft_media', [
           Query.equal('craftId', craft.$id),
           Query.orderAsc('sortOrder'),
         ]);
-        craft.media = (mediaRelRes.rows || []).map(r => ({
-          role: r.role,
-          sortOrder: r.sortOrder,
-          mediaAssetId: r.mediaAssetId,
-        }));
+        craft.media = await resolvePublicMedia(tablesDB, storage, mediaRelRes.rows, (r) => ({ role: r.role }));
 
         return res.json({ craft }, 200, CORS_HEADERS);
       } else {
-        // List published crafts
         const limit = Math.min(Math.max(parseInt(query.limit) || 20, 1), 50);
         const offset = Math.max(parseInt(query.offset) || 0, 0);
 
@@ -169,23 +228,20 @@ export default async ({ req, res, log, error }) => {
           Query.orderDesc('$createdAt'),
         ];
 
-        if (query.category) {
-          queries.push(Query.equal('categoryId', query.category));
-        }
-        if (query.craftType) {
-          queries.push(Query.equal('craftType', query.craftType));
-        }
+        if (query.category) queries.push(Query.equal('categoryId', query.category));
+        if (query.craftType) queries.push(Query.equal('craftType', query.craftType));
 
         const listRes = await tablesDB.listRows(DB_ID, 'crafts', queries);
         const crafts = [];
 
         for (const row of listRes.rows || []) {
           const item = filterObject(row, WHITELISTS.craft);
-          // Attach translations
-          const trans = await tablesDB.listRows(DB_ID, 'craft_translations', [
-            Query.equal('craftId', item.$id),
+          const [trans, mediaRel] = await Promise.all([
+            tablesDB.listRows(DB_ID, 'craft_translations', [Query.equal('craftId', item.$id)]),
+            tablesDB.listRows(DB_ID, 'craft_media', [Query.equal('craftId', item.$id), Query.orderAsc('sortOrder'), Query.limit(20)]),
           ]);
-          item.translations = (trans.rows || []).map(t => filterObject(t, WHITELISTS.craft_translation));
+          item.translations = (trans.rows || []).map((t) => filterObject(t, WHITELISTS.craft_translation));
+          item.media = await resolvePublicMedia(tablesDB, storage, mediaRel.rows, (r) => ({ role: r.role }));
           crafts.push(item);
         }
 
@@ -199,11 +255,10 @@ export default async ({ req, res, log, error }) => {
     }
 
     // ------------------------------------------------------------------------
-    // 2. WEAVING MOTIFS (ENSIKLOPEDIA MOTIF TENUN PRINGGASELA)
+    // 2. WEAVING MOTIFS
     // ------------------------------------------------------------------------
     if (root === 'motifs') {
       if (param) {
-        // Detail motif by slug
         const motifRes = await tablesDB.listRows(DB_ID, 'weaving_motifs', [
           Query.equal('slug', param),
           Query.equal('status', 'published'),
@@ -216,36 +271,28 @@ export default async ({ req, res, log, error }) => {
 
         const motif = filterObject(motifRes.rows[0], WHITELISTS.motif);
 
-        // Fetch translations (philosophical meaning, visual description, technique, origin)
         const transRes = await tablesDB.listRows(DB_ID, 'motif_translations', [
           Query.equal('motifId', motif.$id),
         ]);
-        motif.translations = (transRes.rows || []).map(r => filterObject(r, WHITELISTS.motif_translation));
+        motif.translations = (transRes.rows || []).map((r) => filterObject(r, WHITELISTS.motif_translation));
 
-        // Fetch informant / artisan attribution
         if (motif.contributorId) {
           try {
             const contribRes = await tablesDB.getRow(DB_ID, 'contributors', motif.contributorId);
-            motif.contributor = filterObject(contribRes, WHITELISTS.contributor);
+            motif.contributor = await sanitizeContributor(tablesDB, storage, contribRes);
           } catch (e) {
             motif.contributor = null;
           }
         }
 
-        // Fetch motif media (pattern diagrams, photographs)
         const mediaRel = await tablesDB.listRows(DB_ID, 'motif_media', [
           Query.equal('motifId', motif.$id),
           Query.orderAsc('sortOrder'),
         ]);
-        motif.media = (mediaRel.rows || []).map(r => ({
-          isPatternDiagram: r.isPatternDiagram,
-          sortOrder: r.sortOrder,
-          mediaAssetId: r.mediaAssetId,
-        }));
+        motif.media = await resolvePublicMedia(tablesDB, storage, mediaRel.rows, (r) => ({ isPatternDiagram: r.isPatternDiagram }));
 
         return res.json({ motif }, 200, CORS_HEADERS);
       } else {
-        // List published motifs
         const limit = Math.min(Math.max(parseInt(query.limit) || 20, 1), 50);
         const offset = Math.max(parseInt(query.offset) || 0, 0);
 
@@ -256,19 +303,19 @@ export default async ({ req, res, log, error }) => {
           Query.orderDesc('$createdAt'),
         ];
 
-        if (query.category) {
-          queries.push(Query.equal('categoryId', query.category));
-        }
+        if (query.category) queries.push(Query.equal('categoryId', query.category));
 
         const listRes = await tablesDB.listRows(DB_ID, 'weaving_motifs', queries);
         const motifs = [];
 
         for (const row of listRes.rows || []) {
           const item = filterObject(row, WHITELISTS.motif);
-          const trans = await tablesDB.listRows(DB_ID, 'motif_translations', [
-            Query.equal('motifId', item.$id),
+          const [trans, mediaRel] = await Promise.all([
+            tablesDB.listRows(DB_ID, 'motif_translations', [Query.equal('motifId', item.$id)]),
+            tablesDB.listRows(DB_ID, 'motif_media', [Query.equal('motifId', item.$id), Query.orderAsc('sortOrder'), Query.limit(20)]),
           ]);
-          item.translations = (trans.rows || []).map(t => filterObject(t, WHITELISTS.motif_translation));
+          item.translations = (trans.rows || []).map((t) => filterObject(t, WHITELISTS.motif_translation));
+          item.media = await resolvePublicMedia(tablesDB, storage, mediaRel.rows, (r) => ({ isPatternDiagram: r.isPatternDiagram }));
           motifs.push(item);
         }
 
@@ -282,11 +329,10 @@ export default async ({ req, res, log, error }) => {
     }
 
     // ------------------------------------------------------------------------
-    // 3. CULTURES (TRADISI BUDAYA, DZIKIR SAMAN, RITUAL DESA)
+    // 3. CULTURES
     // ------------------------------------------------------------------------
     if (root === 'cultures') {
       if (param) {
-        // Detail culture by slug
         const cultRes = await tablesDB.listRows(DB_ID, 'cultures', [
           Query.equal('slug', param),
           Query.equal('status', 'published'),
@@ -299,26 +345,28 @@ export default async ({ req, res, log, error }) => {
 
         const culture = filterObject(cultRes.rows[0], WHITELISTS.culture);
 
-        // Fetch translations (ritual procedure, spiritual value, description)
         const transRes = await tablesDB.listRows(DB_ID, 'culture_translations', [
           Query.equal('cultureId', culture.$id),
         ]);
-        culture.translations = (transRes.rows || []).map(r => filterObject(r, WHITELISTS.culture_translation));
+        culture.translations = (transRes.rows || []).map((r) => filterObject(r, WHITELISTS.culture_translation));
 
-        // Fetch media (chants, audio, photos)
+        if (culture.contributorId) {
+          try {
+            const contribRes = await tablesDB.getRow(DB_ID, 'contributors', culture.contributorId);
+            culture.contributor = await sanitizeContributor(tablesDB, storage, contribRes);
+          } catch (e) {
+            culture.contributor = null;
+          }
+        }
+
         const mediaRel = await tablesDB.listRows(DB_ID, 'culture_media', [
           Query.equal('cultureId', culture.$id),
           Query.orderAsc('sortOrder'),
         ]);
-        culture.media = (mediaRel.rows || []).map(r => ({
-          isAudioChant: r.isAudioChant,
-          sortOrder: r.sortOrder,
-          mediaAssetId: r.mediaAssetId,
-        }));
+        culture.media = await resolvePublicMedia(tablesDB, storage, mediaRel.rows, (r) => ({ isAudioChant: r.isAudioChant }));
 
         return res.json({ culture }, 200, CORS_HEADERS);
       } else {
-        // List published cultures
         const limit = Math.min(Math.max(parseInt(query.limit) || 20, 1), 50);
         const offset = Math.max(parseInt(query.offset) || 0, 0);
 
@@ -334,10 +382,12 @@ export default async ({ req, res, log, error }) => {
 
         for (const row of listRes.rows || []) {
           const item = filterObject(row, WHITELISTS.culture);
-          const trans = await tablesDB.listRows(DB_ID, 'culture_translations', [
-            Query.equal('cultureId', item.$id),
+          const [trans, mediaRel] = await Promise.all([
+            tablesDB.listRows(DB_ID, 'culture_translations', [Query.equal('cultureId', item.$id)]),
+            tablesDB.listRows(DB_ID, 'culture_media', [Query.equal('cultureId', item.$id), Query.orderAsc('sortOrder'), Query.limit(20)]),
           ]);
-          item.translations = (trans.rows || []).map(t => filterObject(t, WHITELISTS.culture_translation));
+          item.translations = (trans.rows || []).map((t) => filterObject(t, WHITELISTS.culture_translation));
+          item.media = await resolvePublicMedia(tablesDB, storage, mediaRel.rows, (r) => ({ isAudioChant: r.isAudioChant }));
           cultures.push(item);
         }
 
@@ -351,7 +401,7 @@ export default async ({ req, res, log, error }) => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. VILLAGE HISTORY (SEJARAH DESA PRINGGASELA SELATAN)
+    // 4. VILLAGE HISTORY
     // ------------------------------------------------------------------------
     if (root === 'history') {
       const listRes = await tablesDB.listRows(DB_ID, 'village_history', [
@@ -366,7 +416,7 @@ export default async ({ req, res, log, error }) => {
         const trans = await tablesDB.listRows(DB_ID, 'history_translations', [
           Query.equal('historyId', item.$id),
         ]);
-        item.translations = (trans.rows || []).map(t => filterObject(t, WHITELISTS.history_translation));
+        item.translations = (trans.rows || []).map((t) => filterObject(t, WHITELISTS.history_translation));
         eras.push(item);
       }
 
@@ -385,7 +435,7 @@ export default async ({ req, res, log, error }) => {
         queries.push(Query.equal('type', query.type));
       }
       const listRes = await tablesDB.listRows(DB_ID, 'categories', queries);
-      const items = (listRes.rows || []).map(r => filterObject(r, WHITELISTS.category));
+      const items = (listRes.rows || []).map((r) => filterObject(r, WHITELISTS.category));
 
       return res.json({
         total: listRes.total,
@@ -394,7 +444,7 @@ export default async ({ req, res, log, error }) => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. CONTRIBUTORS (PENGRAJIN / TETUA ADAT / TOKOH BUDAYA)
+    // 6. CONTRIBUTORS
     // ------------------------------------------------------------------------
     if (root === 'contributors') {
       const queries = [Query.limit(50), Query.orderAsc('name')];
@@ -402,7 +452,9 @@ export default async ({ req, res, log, error }) => {
         queries.push(Query.equal('type', query.type));
       }
       const listRes = await tablesDB.listRows(DB_ID, 'contributors', queries);
-      const items = (listRes.rows || []).map(r => filterObject(r, WHITELISTS.contributor));
+      const items = await Promise.all(
+        (listRes.rows || []).map((r) => sanitizeContributor(tablesDB, storage, r))
+      );
 
       return res.json({
         total: listRes.total,
@@ -411,14 +463,13 @@ export default async ({ req, res, log, error }) => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. MUSEUM SETTINGS (PUBLIC CONFIGURATION ONLY)
+    // 7. MUSEUM SETTINGS (PUBLIC KEYS WHITELIST ONLY)
     // ------------------------------------------------------------------------
     if (root === 'settings') {
       const listRes = await tablesDB.listRows(DB_ID, 'museum_settings', [
         Query.limit(50),
       ]);
 
-      // Public settings keys whitelist
       const publicKeys = [
         'museum_name',
         'museum_description_id',
@@ -441,7 +492,6 @@ export default async ({ req, res, log, error }) => {
       return res.json({ settings }, 200, CORS_HEADERS);
     }
 
-    // Fallback 404 for unknown routes
     return res.json({
       error: `Endpoint '/${cleanPath}' not found on Museum Public API`,
       availableEndpoints: ['/crafts', '/motifs', '/cultures', '/history', '/categories', '/contributors', '/settings'],
