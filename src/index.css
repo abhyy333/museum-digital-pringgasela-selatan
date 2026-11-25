@@ -3,17 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    scroll-behavior: smooth;
-    background-color: #ECE6DA;
-  }
-
   body {
-    background-color: #ECE6DA;
-    background-image: url('/images/patterns/linen-paper-texture.webp');
-    background-repeat: repeat;
-    background-size: 520px 520px;
-    color: #25221F;
+    background-color: #f3ece0;
+    color: #23211e;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
@@ -21,65 +13,148 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Playfair Display', Georgia, serif;
-    color: #25221F;
+    letter-spacing: -0.015em;
+  }
+
+  /* Accessible interaction affordances & focus rings (R-32, R-39) */
+  a[href],
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  label[for],
+  [role="button"],
+  [role="tab"],
+  [role="switch"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid #9a4428;
+    outline-offset: 2px;
   }
 }
 
-/* Header & Hero share identical organic archival linen paper substrate */
-.surface-warm-ivory {
-  background-color: rgba(238, 232, 220, 0.92);
-  background-image: url('/images/patterns/linen-paper-texture.webp');
-  background-repeat: repeat;
-  background-size: 520px 520px;
-  backdrop-filter: blur(4px);
-}
-
-/* Slightly warmer aged archival parchment layer for Featured Collections */
-.surface-aged-collections {
-  background-color: rgba(232, 223, 206, 0.36);
+/* ============================================================================
+   LAYER 0 — GLOBAL ARCHIVAL PAPER CANVAS
+   High-resolution seamless handmade cotton-linen paper texture + warm tonal depth
+   ============================================================================ */
+.archival-paper-canvas {
+  background-color: #f3ece0;
   background-image:
-    linear-gradient(to bottom, rgba(240, 233, 220, 0.14), rgba(226, 214, 195, 0.30)),
-    url('/images/patterns/linen-paper-texture.webp');
-  background-repeat: repeat;
-  background-size: auto, 520px 520px;
+    radial-gradient(ellipse 85% 60% at 25% 15%, rgba(255, 251, 244, 0.42) 0%, transparent 70%),
+    radial-gradient(ellipse 75% 70% at 85% 85%, rgba(223, 209, 185, 0.28) 0%, transparent 72%),
+    url('/assets/paper-canvas.webp');
+  background-size: auto, auto, 720px 720px;
+  background-repeat: no-repeat, no-repeat, repeat;
 }
 
-/* Deeper archival rag tone for Curatorial & Explore Museum band */
-.surface-aged-paper {
-  background-color: rgba(225, 212, 191, 0.52);
+/* Subtle warmer archival band for Curatorial section */
+.archival-paper-band {
+  background-color: #ebe2d2;
   background-image:
-    linear-gradient(to bottom, rgba(236, 227, 211, 0.16), rgba(217, 202, 178, 0.38)),
-    url('/images/patterns/linen-paper-texture.webp');
-  background-repeat: repeat;
-  background-size: auto, 520px 520px;
+    linear-gradient(180deg, rgba(226, 214, 194, 0.42) 0%, rgba(235, 226, 210, 0.25) 50%, rgba(220, 206, 184, 0.38) 100%),
+    url('/assets/paper-canvas.webp');
+  background-size: 100% 100%, 720px 720px;
+  background-repeat: no-repeat, repeat;
 }
 
-/* Hand-torn + soft feathered watercolor/paper edge fade for Curatorial village landscape */
-.landscape-organic-crop {
-  clip-path: polygon(
-    22% 0.6%, 29% 2.1%, 38% 0.7%, 48% 2.0%, 59% 0.6%, 71% 1.8%, 82% 0.5%, 92% 1.7%, 99.1% 0.9%,
-    99.6% 16%, 98.9% 34%, 99.6% 52%, 98.8% 70%, 99.5% 87%, 99.0% 98.6%,
-    88% 99.4%, 75% 98.3%, 61% 99.3%, 47% 98.4%, 32% 99.5%, 18% 98.7%, 6% 99.3%, 0.8% 98.1%,
-    1.8% 91%, 4.2% 81%, 6.2% 71%, 8.4% 60%, 10.4% 49%, 8.8% 38%, 13.0% 27%, 11.2% 17%, 16.5% 7%
-  );
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.78) 16%, #000 30%, #000 97%, rgba(0, 0, 0, 0.85) 100%);
-  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.78) 16%, #000 30%, #000 97%, rgba(0, 0, 0, 0.85) 100%);
+/* ============================================================================
+   HERO STAGE — LAYERED 3D CANVAS ARCHITECTURE (CSS Variables & Anchors)
+   All layer coordinates are relative to HeroStage via cqw (container width %)
+   ============================================================================ */
+.hero-stage {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+
+  /* Desktop anchor variables (tuned to IMAGE B proportions & locked master ratios) */
+  --hero-min-height: clamp(435px, 42.2cqw, 620px);
+  --ornament-left-width: clamp(14px, 1.65cqw, 26px);
+  --ornament-right-width: clamp(46px, 5.1cqw, 82px);
+
+  /* Layer 2: Archival Photograph & Frame (starts at ~45.4% of HeroStage) */
+  --frame-left: 45.4cqw;
+  --frame-top: 4.4cqw;
+  --frame-width: 48.2cqw;
+
+  /* Layer 3: Weaver + Loom + Woven Mat Cutout */
+  --weaver-left: 36.8cqw;
+  --weaver-top: 1.6cqw;
+  --weaver-width: 56.8cqw;
+  --weaver-scale: 1;
+
+  /* Layer 4: Foreground Woven Fabric (mathematically locked to loom beam & weaver knees) */
+  --fabric-left: calc(var(--weaver-left) - var(--weaver-width) * 0.32534);
+  --fabric-top: calc(var(--weaver-top) + var(--weaver-width) * 0.36530);
+  --fabric-width: calc(var(--weaver-width) * 0.81050);
+  --fabric-scale: 1;
+  --fabric-rotate: 0deg;
+
+  /* Layer 5: Natural Shadow Controls */
+  --shadow-intensity: 1;
 }
 
-/* Custom scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Tablet Landscape / Small Laptop (1024px - 1180px) */
+@media (max-width: 1180px) and (min-width: 1024px) {
+  .hero-stage {
+    --hero-min-height: clamp(415px, 43.2cqw, 510px);
+    --ornament-left-width: 16px;
+    --ornament-right-width: 46px;
+    --frame-left: 46.2cqw;
+    --frame-top: 4.8cqw;
+    --frame-width: 48.8cqw;
+    --weaver-left: 37.5cqw;
+    --weaver-top: 2cqw;
+    --weaver-width: 57.5cqw;
+  }
 }
-::-webkit-scrollbar-track {
-  background: #E9DFD0;
+
+/* Tablet Portrait (640px - 1023px): stacked editorial two-tier stage */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .hero-stage {
+    --hero-min-height: auto;
+    --ornament-left-width: 12px;
+    --ornament-right-width: 34px;
+    --frame-left: 31.5cqw;
+    --frame-top: 4.8cqw;
+    --frame-width: 60.5cqw;
+    --weaver-left: 22.5cqw;
+    --weaver-top: 1.4cqw;
+    --weaver-width: 68cqw;
+  }
 }
-::-webkit-scrollbar-thumb {
-  background: #C9B69C;
-  border-radius: 3px;
+
+/* Mobile (< 640px): clean vertical editorial stack, no text/image overlap */
+@media (max-width: 639px) {
+  .hero-stage {
+    --hero-min-height: auto;
+    --ornament-left-width: 0px;
+    --ornament-right-width: 0px;
+    --frame-left: 34cqw;
+    --frame-top: 4.6cqw;
+    --frame-width: 63.5cqw;
+    --weaver-left: 24.5cqw;
+    --weaver-top: 1.2cqw;
+    --weaver-width: 73cqw;
+  }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #806B58;
+
+/* Legacy Indigo Textile Helpers preserved for Admin / Detail views */
+.bg-indigo-textile {
+  background-color: #0b1623;
+  background-image:
+    radial-gradient(ellipse at 85% 15%, rgba(185, 87, 53, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 85%, rgba(16, 29, 43, 0.85) 0%, transparent 65%),
+    url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 16 L32 16 M16 0 L16 32' stroke='%2317283A' stroke-width='0.75' stroke-opacity='0.45' fill='none'/%3E%3Cpath d='M0 0 L32 32 M32 0 L0 32' stroke='%23101D2B' stroke-width='0.5' stroke-opacity='0.6' fill='none'/%3E%3C/svg%3E");
+}
+
+.bg-textile-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 12 L24 12 M12 0 L12 24' stroke='%231E3246' stroke-width='0.5' stroke-opacity='0.5' fill='none'/%3E%3C/svg%3E");
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -89,4 +164,20 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Subtle Museum Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #ede4d4;
+}
+::-webkit-scrollbar-thumb {
+  background: #c5b6a0;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9a4428;
 }
