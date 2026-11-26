@@ -40,11 +40,6 @@ export const AdminLoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickFill = (presetEmail: string, presetPass: string) => {
-    setEmail(presetEmail);
-    setPassword(presetPass);
-  };
-
   return (
     <div className="min-h-screen bg-sand-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       
@@ -134,34 +129,14 @@ export const AdminLoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick-Fill Presets for Seed Administrators */}
-          <div className="pt-4 border-t border-border/80 space-y-2">
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block">
-              Akun Demonstrasi / Presets:
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('superadmin@pringgasela.desa.id', 'Pringgasela2026!Admin')}
-                className="py-1.5 px-2 rounded-lg bg-sand-100 hover:bg-sand-200 border border-border/60 text-[11px] font-medium text-text text-center transition-colors"
-              >
-                Super Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admindesa@pringgasela.desa.id', 'Pringgasela2026!Sec')}
-                className="py-1.5 px-2 rounded-lg bg-sand-100 hover:bg-sand-200 border border-border/60 text-[11px] font-medium text-text text-center transition-colors"
-              >
-                Admin Desa
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('kkn@pringgasela.desa.id', 'Pringgasela2026!Sec')}
-                className="py-1.5 px-2 rounded-lg bg-sand-100 hover:bg-sand-200 border border-border/60 text-[11px] font-medium text-text text-center transition-colors"
-              >
-                Admin KKN
-              </button>
-            </div>
+          <div className="pt-4 border-t border-border/80 space-y-1.5 text-[11px] text-muted">
+            <p className="font-semibold text-text/80 uppercase tracking-wider">
+              Akses Pengelola Resmi (Appwrite Auth)
+            </p>
+            <p className="leading-relaxed">
+              Masuk menggunakan akun email terverifikasi yang terdaftar pada tim kurator{' '}
+              <code className="font-mono text-primary">museum-admins</code> (Super Admin, Admin Desa, atau Admin KKN).
+            </p>
           </div>
 
         </div>

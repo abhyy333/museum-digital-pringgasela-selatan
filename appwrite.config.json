@@ -64,6 +64,7 @@
                 "databases.read",
                 "tables.read",
                 "rows.read",
+                "rows.write",
                 "files.read"
             ],
             "installationId": "",
@@ -96,10 +97,6 @@
             "scopes": [
                 "files.read",
                 "files.write",
-                "databases.read",
-                "databases.write",
-                "tables.read",
-                "tables.write",
                 "rows.read",
                 "rows.write",
                 "teams.read"
@@ -1929,11 +1926,7 @@
     "buckets": [
         {
             "$id": "museum-media",
-            "$permissions": [
-                "update(\"team:museum-admins/desa\")",
-                "update(\"team:museum-admins/owner\")",
-                "delete(\"team:museum-admins/owner\")"
-            ],
+            "$permissions": [],
             "fileSecurity": true,
             "name": "Museum Media & Heritage Storage",
             "enabled": true,

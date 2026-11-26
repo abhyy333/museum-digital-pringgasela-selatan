@@ -23,8 +23,24 @@ const ALLOWED_EXTENSIONS = new Set([
   'pdf', 'zip',
 ]);
 
-// Match Appwrite Bucket maximumFileSize (50,000,000 bytes)
+// Match Appwrite Bucket maximumFileSize (50,000,000 bytes) & Appwrite AV ceiling (20,000,000 bytes)
 const MAX_FILE_BYTES = 50_000_000;
+const ANTIVIRUS_SCAN_CEILING = 20_000_000;
+
+function getQuarantineNotice(selected: File | null): string | null {
+  if (!selected) return null;
+  const ext = selected.name.split('.').pop()?.toLowerCase() || '';
+  if (selected.size > ANTIVIRUS_SCAN_CEILING) {
+    return `Berkas melebihi 20 MB (${formatBytes(selected.size)}) sehingga tidak dipindai antivirus otomatis Appwrite. Sistem mengunci berkas ini dalam Karantina Privat.`;
+  }
+  if (ext === 'svg' || selected.type === 'image/svg+xml') {
+    return 'Berkas SVG masuk Karantina Privat dan dilarang dipublikasikan langsung ke pengunjung publik.';
+  }
+  if (ext === 'zip' || selected.type.includes('zip')) {
+    return 'Arsip ZIP masuk Karantina Privat untuk pengarsipan internal dan dilarang dipublikasikan ke situs publik.';
+  }
+  return null;
+}
 
 export const MediaUploader: React.FC<MediaUploaderProps> = ({
   onSuccess,
@@ -42,13 +58,18 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [consentChecked, setConsentChecked] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [uploadStatusText, setUploadStatusText] = useState('Mengunggah berkas privat...');
   const [error, setError] = useState<string | null>(null);
 
+  const quarantineNotice = getQuarantineNotice(file);
+  const allowPublicOption = canPublish && !quarantineNotice;
+
   useEffect(() => {
-    if (!canPublish && isPublic) {
+    if ((!canPublish || quarantineNotice) && isPublic) {
       setIsPublic(false);
+      setConsentChecked(false);
     }
-  }, [canPublish, isPublic]);
+  }, [canPublish, quarantineNotice, isPublic]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -77,6 +98,10 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     }
 
     setFile(selected);
+    if (getQuarantineNotice(selected)) {
+      setIsPublic(false);
+      setConsentChecked(false);
+    }
 
     if (
       selected.type.startsWith('image/') ||
@@ -94,10 +119,11 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     e.preventDefault();
     if (!file || !user) return;
 
-    const effectivePublic = Boolean(canPublish && isPublic);
-    if (isPublic && !canPublish) {
+    const effectivePublic = Boolean(allowPublicOption && isPublic);
+    if (isPublic && !allowPublicOption) {
       setError(
-        'Akun KKN tidak diizinkan menerbitkan berkas secara publik. Ubah akses ke Privat (Staf).'
+        quarantineNotice ||
+          'Akun KKN tidak diizinkan menerbitkan berkas secara publik. Ubah akses ke Privat (Staf).'
       );
       setIsPublic(false);
       return;
@@ -122,6 +148,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     try {
       setUploading(true);
       setProgress(0);
+      setUploadStatusText('Mempersiapkan sesi unggahan aman...');
       setError(null);
 
       // 1. Upload strictly through server-authoritative Appwrite Function gateway (private-by-default)
@@ -132,6 +159,23 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         photographer: photographer || user.name || 'Staf Museum',
         isPublicIntent: effectivePublic,
         onProgress: (percent) => setProgress(percent),
+        onStatus: ({ chunkIndex, totalChunks, phase, retryAttempt }) => {
+          if (phase === 'hashing') {
+            setUploadStatusText('Menghitung checksum integritas SHA-256...');
+          } else if (phase === 'retrying') {
+            setUploadStatusText(
+              `Gangguan jaringan pada potongan ${chunkIndex + 1}/${totalChunks}, mencoba ulang (${retryAttempt})...`
+            );
+          } else if (phase === 'finalizing') {
+            setUploadStatusText(
+              totalChunks > 1
+                ? `Mengunggah potongan akhir ${chunkIndex + 1}/${totalChunks} & memverifikasi server...`
+                : 'Mengunggah & memverifikasi integritas + metadata di server...'
+            );
+          } else {
+            setUploadStatusText(`Mengunggah potongan aman ${chunkIndex + 1}/${totalChunks}...`);
+          }
+        },
       });
 
       // 2. If authorized curator explicitly opted in to immediate publish, perform explicit server publish step
@@ -307,10 +351,12 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             </button>
             <button
               type="button"
-              disabled={!canPublish}
-              onClick={() => canPublish && setIsPublic(true)}
+              disabled={!allowPublicOption}
+              onClick={() => allowPublicOption && setIsPublic(true)}
               title={
-                canPublish
+                quarantineNotice
+                  ? quarantineNotice
+                  : canPublish
                   ? 'Langsung tandai dapat dibaca publik'
                   : 'Hanya Admin Desa & Super Admin yang berwenang mengatur publikasi media'
               }
@@ -325,7 +371,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             </button>
           </div>
           <p className="text-[11px] text-muted mt-1">
-            {!canPublish
+            {quarantineNotice
+              ? quarantineNotice
+              : !canPublish
               ? 'Unggahan Tim KKN otomatis berstatus Privat hingga diverifikasi & dipublikasikan oleh Admin Desa.'
               : isPublic
               ? 'Dapat diakses publik (`read("any")`) bila persetujuan di bawah dicentang.'
@@ -353,9 +401,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       {/* Progress Bar */}
       {uploading && (
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-muted">
-            <span>Mengunggah berkas privat...</span>
-            <span>{progress}%</span>
+          <div className="flex justify-between gap-2 text-xs text-muted">
+            <span className="truncate">{uploadStatusText}</span>
+            <span className="font-mono shrink-0">{progress}%</span>
           </div>
           <div className="w-full h-2 rounded-full bg-sand-200 overflow-hidden">
             <div

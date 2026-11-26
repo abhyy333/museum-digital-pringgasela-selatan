@@ -9,10 +9,15 @@ import {
   Lock,
   Globe,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import { Query } from 'appwrite';
 import { tablesDB } from '../../appwrite/client';
-import { deleteMediaViaGateway } from '../../appwrite/adminMediaApi';
+import {
+  deleteMediaViaGateway,
+  GatewayReconcileReport,
+  reconcileMediaViaGateway,
+} from '../../appwrite/adminMediaApi';
 import { APPWRITE_CONFIG } from '../../appwrite/config';
 import { useAuth } from '../../context/AuthContext';
 import { MediaAsset } from '../../types/schema';
@@ -27,8 +32,8 @@ import {
   isStorageFilePublic,
   setMediaFilePublicAccess,
   StorageAccessInfo,
+  StorageFileSummary,
 } from '../../utils/mediaAccess';
-import type { Models } from 'appwrite';
 
 type AccessFilter = 'all' | 'private' | 'public' | 'missing';
 
@@ -36,12 +41,14 @@ export const AdminMediaPage: React.FC = () => {
   const { user, canPublish, canDelete, refreshAuth } = useAuth();
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [accessMap, setAccessMap] = useState<Map<string, StorageAccessInfo>>(new Map());
-  const [orphanFiles, setOrphanFiles] = useState<Models.File[]>([]);
+  const [orphanFiles, setOrphanFiles] = useState<StorageFileSummary[]>([]);
   const [filterMode, setFilterMode] = useState<AccessFilter>('all');
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploaderOpen, setUploaderOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileReport, setReconcileReport] = useState<GatewayReconcileReport | null>(null);
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchMedia = async () => {
@@ -163,6 +170,20 @@ export const AdminMediaPage: React.FC = () => {
     }
   };
 
+  const handleRunReconcile = async () => {
+    if (!canPublish) return;
+    try {
+      setReconciling(true);
+      setAlertMsg(null);
+      const report = await reconcileMediaViaGateway();
+      setReconcileReport(report);
+    } catch (err: any) {
+      setAlertMsg({ type: 'error', text: formatAppwriteError(err, refreshAuth) });
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   const publicCount = assets.filter((a) => accessMap.get(a.fileId)?.isPublic).length;
   const privateCount = assets.filter((a) => {
     const info = accessMap.get(a.fileId);
@@ -195,14 +216,82 @@ export const AdminMediaPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setUploaderOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-surface text-xs font-semibold transition-colors shadow-xs"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Unggah Berkas Baru</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {canPublish && (
+            <button
+              type="button"
+              disabled={reconciling}
+              onClick={handleRunReconcile}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-border bg-surface hover:bg-sand-50 text-text text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
+              <span>{reconciling ? 'Memeriksa...' : 'Cek Rekonsiliasi'}</span>
+            </button>
+          )}
+          <button
+            onClick={() => setUploaderOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-surface text-xs font-semibold transition-colors shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Unggah Berkas Baru</span>
+          </button>
+        </div>
       </div>
+
+      {reconcileReport && (
+        <div className="bg-surface p-4 rounded-2xl border border-border text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-serif font-bold text-text">
+              Ringkasan Rekonsiliasi Server Gateway
+            </span>
+            <button
+              type="button"
+              onClick={() => setReconcileReport(null)}
+              className="text-[11px] text-muted hover:text-text"
+            >
+              Tutup
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
+              <span className="text-[10px] text-muted block">File Storage</span>
+              <strong className="font-mono text-sm text-text">
+                {reconcileReport.summary.totalStorageFiles}
+              </strong>
+            </div>
+            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
+              <span className="text-[10px] text-muted block">Baris Metadata</span>
+              <strong className="font-mono text-sm text-text">
+                {reconcileReport.summary.totalMediaAssets}
+              </strong>
+            </div>
+            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
+              <span className="text-[10px] text-muted block">Tanpa Metadata</span>
+              <strong className="font-mono text-sm text-amber-800">
+                {reconcileReport.summary.storageWithoutMetadataCount}
+              </strong>
+            </div>
+            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
+              <span className="text-[10px] text-muted block">File Hilang</span>
+              <strong className="font-mono text-sm text-rose-700">
+                {reconcileReport.summary.metadataWithoutStorageCount}
+              </strong>
+            </div>
+            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
+              <span className="text-[10px] text-muted block">Chunk Tak Selesai</span>
+              <strong className="font-mono text-sm text-rose-700">
+                {reconcileReport.summary.incompleteUploadsCount}
+              </strong>
+            </div>
+            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
+              <span className="text-[10px] text-muted block">File Karantina</span>
+              <strong className="font-mono text-sm text-text">
+                {reconcileReport.summary.quarantinedFilesCount}
+              </strong>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Security Policy & Filter Summary */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-surface p-4 rounded-2xl border border-border">
@@ -278,6 +367,15 @@ export const AdminMediaPage: React.FC = () => {
             const access = accessMap.get(asset.fileId);
             const existsInStorage = Boolean(access?.exists);
             const isPublic = Boolean(access?.isPublic);
+            const ext = (access?.name || asset.fileId || '').split('.').pop()?.toLowerCase() || '';
+            const isQuarantined = Boolean(
+              access?.quarantined ||
+                asset.fileSizeBytes > 20_000_000 ||
+                asset.mimeType === 'image/svg+xml' ||
+                asset.mimeType.includes('zip') ||
+                ext === 'svg' ||
+                ext === 'zip'
+            );
             const isBusy = togglingId === asset.fileId;
 
             return (
@@ -307,6 +405,8 @@ export const AdminMediaPage: React.FC = () => {
                         ? 'bg-rose-600 text-white'
                         : isPublic
                         ? 'bg-emerald-700 text-white'
+                        : isQuarantined
+                        ? 'bg-slate-800 text-amber-200'
                         : 'bg-amber-700 text-white'
                     }`}
                   >
@@ -317,6 +417,10 @@ export const AdminMediaPage: React.FC = () => {
                     ) : isPublic ? (
                       <>
                         <Globe className="w-3 h-3" /> Publik
+                      </>
+                    ) : isQuarantined ? (
+                      <>
+                        <ShieldAlert className="w-3 h-3" /> Karantina
                       </>
                     ) : (
                       <>
@@ -342,11 +446,18 @@ export const AdminMediaPage: React.FC = () => {
                   {canPublish && existsInStorage && (
                     <button
                       type="button"
-                      disabled={isBusy}
+                      disabled={isBusy || (!isPublic && isQuarantined)}
+                      title={
+                        !isPublic && isQuarantined
+                          ? 'Berkas karantina (>20 MB / SVG / ZIP) tidak dapat diterbitkan ke publik'
+                          : undefined
+                      }
                       onClick={() => handleTogglePublicAccess(asset, !isPublic)}
-                      className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-semibold border transition-colors inline-flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+                      className={`w-full py-1.5 px-3 rounded-lg text-[11px] font-semibold border transition-colors inline-flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isPublic
                           ? 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+                          : isQuarantined
+                          ? 'bg-slate-100 border-slate-300 text-slate-600'
                           : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
                       }`}
                     >
@@ -354,6 +465,11 @@ export const AdminMediaPage: React.FC = () => {
                         <>
                           <Lock className="w-3 h-3" />
                           <span>{isBusy ? 'Memproses...' : 'Tarik ke Privat'}</span>
+                        </>
+                      ) : isQuarantined ? (
+                        <>
+                          <ShieldAlert className="w-3 h-3" />
+                          <span>Karantina Privat (Tak Dapat Terbit)</span>
                         </>
                       ) : (
                         <>

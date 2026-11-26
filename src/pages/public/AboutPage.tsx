@@ -4,7 +4,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
 
 export const AboutPage: React.FC = () => {
-  const { t } = useLanguage();
+  const { locale, t } = useLanguage();
   const [settings, setSettings] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -26,7 +26,9 @@ export const AboutPage: React.FC = () => {
           {t('Tentang Museum Digital Pringgasela Selatan', 'About South Pringgasela Digital Museum')}
         </h1>
         <p className="text-muted text-base leading-relaxed">
-          {settings.museum_description_id ||
+          {(locale === 'en'
+            ? settings.museum_description_en || settings.museum_description_id
+            : settings.museum_description_id) ||
             t(
               'Sebuah inisiatif preservasi digital komprehensif untuk melindungi, mendokumentasikan, dan memperluas literasi kebudayaan tenun tradisional, Dzikir Saman, dan peradaban luhur Sasak Pringgasela Selatan.',
               'A digital heritage initiative dedicated to safeguarding and sharing traditional Sasak weaving, sacred chants, and the founding history of South Pringgasela.'

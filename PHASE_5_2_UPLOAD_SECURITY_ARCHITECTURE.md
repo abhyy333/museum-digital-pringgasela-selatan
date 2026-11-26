@@ -76,3 +76,14 @@ Implementasi utama berada di [main.js](file:///home/aby/Antigravity_Project/func
 ### 5. Evaluasi Kebutuhan Perubahan Schema
 
 **Kesimpulan:** Tidak ada perubahan skema Appwrite TablesDB (`0` kolom ditambah/diubah). Kolom existing pada tabel `media_assets` (`fileId`, `bucketId`, `mediaType`, `mimeType`, `fileSizeBytes`, `altTextId`, `altTextEn`, `captionId`, `captionEn`, `photographer`, `createdById`) dan `audit_logs` sudah sepenuhnya kompatibel dengan penulisan atomik dari server gateway.
+
+---
+
+### 6. Pembaruan Keamanan Phase 5.4 (`museum-admin-media v4.0.0` & `museum-public-api v1.3.0`)
+
+Pada Phase 5.4, gateway ditingkatkan dari `v2.0.0`/`v3.0.0` ke **`v4.0.0`** (Deployment `6b085d18b66fb6708142`, **5 minimal API Key scopes**: `files.read`, `files.write`, `rows.read`, `rows.write`, `teams.read`):
+
+1. **Sesi Upload Terikat HMAC-SHA256 (`UPLOAD_SESSION_SECRET`)**: Menerbitkan `sessionToken` (`X-Upload-Session-Token`) pada chunk 0 dengan masa berlaku 20 menit (`HTTP 410` saat kedaluwarsa), isolasi lintas pengguna (`HTTP 403`), penguncian metadata sesi (`HTTP 409`), lock konkurensi paralel (`HTTP 409`), penolakan duplikasi/lompatan chunk (`HTTP 409`), serta verifikasi `X-File-Sha256` / `X-File-Md5`.
+2. **Karantina Keras (`HTTP 422`)**: File `> 20.000.000` bytes (melewati batas AV Appwrite Cloud), `image/svg+xml`, dan `application/zip` dikunci sebagai arsip privat; permintaan `POST /media/:fileId/publish` diblokir dengan `HTTP 422`, serta `museum-public-api v1.3.0` menolak item karantina lewat `isPublicStorageFile()`.
+3. **Inspeksi Parser Struktural ([security.js](file:///home/aby/Antigravity_Project/functions/museum-admin-media/src/security.js))**: XML tag-whitelist untuk SVG (`<!DOCTYPE`/`<!ENTITY`/`<![CDATA[`/event handler/skema URI terlarang), pemindai LFH + Central Directory ZIP terhadap path traversal, nested archive, zip-bomb ratio, dan ekstensi eksekusi, serta inspeksi `IHDR`/`IEND` PNG, payload pasca-`EOI` JPEG, dan `/AA` + `%%EOF` PDF.
+4. **Rekonsiliasi & Ketahanan Operasional**: Rate limiter jendela geser (`HTTP 429` + `Retry-After`), sanitasi error `500`, `GET /media/reconcile` (`admin_desa`/`super_admin`), dan `POST /media/cleanup-incomplete` (`super_admin`).

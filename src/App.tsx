@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
+import { useVisitorTracker } from './hooks/useVisitorTracker';
 
 // Public Pages
 import { HomePage } from './pages/public/HomePage';
@@ -34,6 +35,7 @@ import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 const PublicLayout: React.FC = () => {
   const location = useLocation();
   const isHome = location.pathname === '/';
+  useVisitorTracker();
 
   return (
     <div

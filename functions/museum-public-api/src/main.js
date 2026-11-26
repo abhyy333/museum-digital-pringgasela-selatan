@@ -1,9 +1,95 @@
-import { Client, TablesDB, Storage, Query } from 'node-appwrite';
+import crypto from 'node:crypto';
+import { Client, TablesDB, Storage, Query, ID } from 'node-appwrite';
 
 const DB_ID = process.env.DATABASE_ID || 'museum_digital';
 const BUCKET_ID = process.env.STORAGE_BUCKET_ID || 'museum-media';
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6affdaa0003c416ecdb0';
+
+const ALLOWED_ANALYTICS_ROOTS = new Set(['', 'motifs', 'crafts', 'cultures', 'curatorial', 'history', 'about']);
+const ALLOWED_REFERRERS = new Set(['direct', 'internal', 'search', 'social', 'other']);
+const ALLOWED_DEVICES = new Set(['desktop', 'tablet', 'mobile']);
+const analyticsRateBuckets = new Map();
+const recentPageviewCache = new Map();
+const SESSION_RATE_SALT = crypto.randomBytes(16).toString('hex');
+
+function getWitaDateKey(nowMs = Date.now()) {
+  const wita = new Date(nowMs + 8 * 60 * 60 * 1000);
+  return wita.toISOString().slice(0, 10);
+}
+
+function consumeAnalyticsRate(key, maxHits, windowMs = 60_000, nowMs = Date.now()) {
+  if (analyticsRateBuckets.size > 3000) {
+    for (const [k, stamps] of analyticsRateBuckets.entries()) {
+      if (stamps.length === 0 || nowMs - stamps[stamps.length - 1] > windowMs) {
+        analyticsRateBuckets.delete(k);
+      }
+    }
+  }
+  const cutoff = nowMs - windowMs;
+  const active = (analyticsRateBuckets.get(key) || []).filter((t) => t > cutoff);
+  if (active.length >= maxHits) {
+    analyticsRateBuckets.set(key, active);
+    return false;
+  }
+  active.push(nowMs);
+  analyticsRateBuckets.set(key, active);
+  return true;
+}
+
+function sanitizeTrackingPayload(raw) {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'Payload analytics tidak valid.' };
+  const sessionId = String(raw.sessionId || '').trim();
+  if (!/^[a-zA-Z0-9_-]{12,64}$/.test(sessionId)) {
+    return { ok: false, error: 'Identifier sesi anonim tidak valid.' };
+  }
+  const eventType = raw.eventType === 'heartbeat' ? 'heartbeat' : raw.eventType === 'pageview' ? 'pageview' : null;
+  if (!eventType) {
+    return { ok: false, error: 'Jenis event analytics harus pageview atau heartbeat.' };
+  }
+
+  let rawPath = String(raw.path || '/').split('?')[0].split('#')[0].trim();
+  if (!rawPath.startsWith('/')) rawPath = `/${rawPath}`;
+  if (rawPath.length > 1) rawPath = rawPath.replace(/\/+$/, '');
+  if (rawPath.length > 180 || /[<>"{}\\]/.test(rawPath)) {
+    return { ok: false, error: 'Path halaman tidak valid.' };
+  }
+
+  const segs = rawPath.replace(/^\/+/, '').split('/').filter(Boolean);
+  const rootSeg = segs[0] || '';
+  if (!ALLOWED_ANALYTICS_ROOTS.has(rootSeg)) {
+    return { ok: false, error: 'Path tidak termasuk rute publik museum yang dilacak.' };
+  }
+  const slug = segs[1] && /^[a-zA-Z0-9_-]{1,128}$/.test(segs[1]) ? segs[1] : null;
+  const contentTypeMap = {
+    '': 'home',
+    motifs: slug ? 'motif' : 'catalog',
+    crafts: slug ? 'craft' : 'catalog',
+    cultures: slug ? 'culture' : 'catalog',
+    curatorial: 'curatorial',
+    history: 'history',
+    about: 'about',
+  };
+  const contentType = contentTypeMap[rootSeg] || 'catalog';
+
+  const referrerCategory = ALLOWED_REFERRERS.has(raw.referrerCategory) ? raw.referrerCategory : 'direct';
+  const deviceCategory = ALLOWED_DEVICES.has(raw.deviceCategory) ? raw.deviceCategory : 'desktop';
+  const titleHint = String(raw.titleHint || '').replace(/[<>\r\n\t]/g, ' ').trim().slice(0, 140) || null;
+
+  return {
+    ok: true,
+    data: {
+      sessionId,
+      eventType,
+      path: rawPath || '/',
+      contentType,
+      slug,
+      titleHint,
+      referrerCategory,
+      deviceCategory,
+    },
+  };
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,8 +125,29 @@ function filterObject(obj, allowedKeys) {
   return filtered;
 }
 
+const QUARANTINED_PUBLIC_MIMES = new Set([
+  'application/zip',
+  'application/x-zip-compressed',
+  'image/svg+xml',
+]);
+const ANTIVIRUS_SCAN_CEILING = 20_000_000;
+
 function isPublicStorageFile(fileMeta) {
-  const perms = fileMeta?.$permissions || [];
+  if (!fileMeta) return false;
+  if (typeof fileMeta.sizeOriginal === 'number' && fileMeta.sizeOriginal > ANTIVIRUS_SCAN_CEILING) {
+    return false;
+  }
+  if (
+    typeof fileMeta.chunksTotal === 'number' &&
+    typeof fileMeta.chunksUploaded === 'number' &&
+    fileMeta.chunksUploaded < fileMeta.chunksTotal
+  ) {
+    return false;
+  }
+  const mime = String(fileMeta.mimeType || '').split(';')[0].trim().toLowerCase();
+  if (QUARANTINED_PUBLIC_MIMES.has(mime)) return false;
+
+  const perms = fileMeta.$permissions || [];
   return perms.some((p) => typeof p === 'string' && p.trim() === 'read("any")');
 }
 
@@ -117,24 +224,45 @@ export default async ({ req, res, log, error }) => {
 
   let path = (req.path || '/').trim();
   let method = (req.method || 'GET').toUpperCase();
-  let query = req.query || {};
+  let query = { ...(req.query || {}) };
+  let rawBodyObj = null;
 
-  if (req.body && typeof req.body === 'object') {
-    if (req.body.path) path = req.body.path;
-    if (req.body.method) method = (req.body.method || method).toUpperCase();
-    if (req.body.query) query = { ...query, ...req.body.query };
-  } else if (typeof req.body === 'string' && req.body.trim().startsWith('{')) {
-    try {
-      const parsed = JSON.parse(req.body);
-      if (parsed.path) path = parsed.path;
-      if (parsed.method) method = (parsed.method || method).toUpperCase();
-      if (parsed.query) query = { ...query, ...parsed.query };
-    } catch (e) {
-      // ignore JSON parse error on body
+  try {
+    if (req.body && typeof req.body === 'object') {
+      rawBodyObj = req.body;
+    } else if (typeof req.body === 'string' && req.body.trim().startsWith('{')) {
+      rawBodyObj = JSON.parse(req.body);
+    }
+  } catch {
+    rawBodyObj = null;
+  }
+
+  if (rawBodyObj) {
+    // Only treat rawBodyObj.path / rawBodyObj.method as RPC routing overrides when NOT an analytics event payload
+    if (typeof rawBodyObj.sessionId !== 'string') {
+      if (typeof rawBodyObj.path === 'string' && rawBodyObj.path) path = rawBodyObj.path;
+      if (typeof rawBodyObj.method === 'string' && rawBodyObj.method) method = rawBodyObj.method.toUpperCase();
+      if (rawBodyObj.query && typeof rawBodyObj.query === 'object') {
+        query = { ...query, ...rawBodyObj.query };
+      }
+    }
+    // Appwrite /executions forwards inner JSON body string if present
+    if (typeof rawBodyObj.body === 'string' && rawBodyObj.body.trim().startsWith('{')) {
+      try {
+        const inner = JSON.parse(rawBodyObj.body);
+        if (inner && typeof inner === 'object') rawBodyObj = inner;
+      } catch {}
     }
   }
 
-  const cleanPath = path.replace(/^\/+|\/+$/g, '');
+  const [rawPathname, rawQs] = path.split('?');
+  if (rawQs) {
+    const qsParams = new URLSearchParams(rawQs);
+    for (const [k, v] of qsParams.entries()) {
+      if (query[k] === undefined) query[k] = v;
+    }
+  }
+  const cleanPath = rawPathname.replace(/^\/+|\/+$/g, '');
   const segments = cleanPath ? cleanPath.split('/') : [];
   const root = segments[0] || 'health';
   const param = segments[1] || null;
@@ -161,7 +289,7 @@ export default async ({ req, res, log, error }) => {
       return res.json({
         status: 'ok',
         service: 'Museum Digital Pringgasela Selatan Public Content API',
-        version: '1.2.0',
+        version: '1.4.0',
         environment: 'production',
         timestamp: new Date().toISOString(),
         endpoints: [
@@ -175,8 +303,170 @@ export default async ({ req, res, log, error }) => {
           '/categories',
           '/contributors',
           '/settings',
+          'POST /analytics/track',
         ],
       }, 200, CORS_HEADERS);
+    }
+
+    // ------------------------------------------------------------------------
+    // 0. PRIVACY-FIRST ANONYMOUS ANALYTICS INGESTION (WRITE-ONLY FROM PUBLIC)
+    // ------------------------------------------------------------------------
+    if (root === 'analytics') {
+      if (param !== 'track' || method !== 'POST') {
+        return res.json(
+          { error: 'Data analitik bersifat privat dan hanya dapat dibaca kurator terotentikasi.' },
+          403,
+          CORS_HEADERS
+        );
+      }
+
+      const analyticsInput =
+        rawBodyObj && typeof rawBodyObj.sessionId === 'string'
+          ? rawBodyObj
+          : query;
+      const validated = sanitizeTrackingPayload(analyticsInput);
+      if (!validated.ok) {
+        return res.json({ error: validated.error }, 400, CORS_HEADERS);
+      }
+
+      const ev = validated.data;
+      const clientIp =
+        String(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || '')
+          .split(',')[0]
+          .trim() || 'unknown';
+      const transientIpKey = crypto.createHash('sha256').update(`${SESSION_RATE_SALT}:${clientIp}`).digest('hex').slice(0, 16);
+
+      if (
+        !consumeAnalyticsRate(`sess:${ev.sessionId}`, 25, 60_000) ||
+        !consumeAnalyticsRate(`ip:${transientIpKey}`, 90, 60_000)
+      ) {
+        return res.json({ error: 'Terlalu banyak event analitik dari sesi ini.' }, 429, CORS_HEADERS);
+      }
+
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      const todayKey = getWitaDateKey(nowMs);
+
+      let isDedupedPageview = false;
+      if (ev.eventType === 'pageview') {
+        const dedupeKey = `${ev.sessionId}:${ev.path}`;
+        const prevMs = recentPageviewCache.get(dedupeKey) || 0;
+        if (nowMs - prevMs < 45_000) {
+          isDedupedPageview = true;
+        } else {
+          if (recentPageviewCache.size > 4000) {
+            for (const [k, ts] of recentPageviewCache.entries()) {
+              if (nowMs - ts > 60_000) recentPageviewCache.delete(k);
+            }
+          }
+          recentPageviewCache.set(dedupeKey, nowMs);
+        }
+      }
+
+      const shouldCountPageview = ev.eventType === 'pageview' && !isDedupedPageview;
+      let isNewUniqueToday = false;
+
+      const existingSess = await tablesDB.listRows(DB_ID, 'visitor_sessions', [
+        Query.equal('sessionId', ev.sessionId),
+        Query.limit(1),
+      ]);
+      const sessRow = existingSess.rows?.[0];
+
+      if (!sessRow) {
+        isNewUniqueToday = true;
+        await tablesDB.createRow(DB_ID, 'visitor_sessions', ID.unique(), {
+          sessionId: ev.sessionId,
+          currentPath: ev.path,
+          pageTitle: ev.titleHint,
+          referrerCategory: ev.referrerCategory,
+          deviceCategory: ev.deviceCategory,
+          lastSeenAt: nowIso,
+          startedDate: todayKey,
+          pageViewsCount: shouldCountPageview ? 1 : 0,
+        });
+      } else {
+        if (sessRow.startedDate !== todayKey) {
+          isNewUniqueToday = true;
+        }
+        await tablesDB.updateRow(DB_ID, 'visitor_sessions', sessRow.$id, {
+          currentPath: ev.path,
+          ...(ev.titleHint ? { pageTitle: ev.titleHint } : {}),
+          deviceCategory: ev.deviceCategory,
+          referrerCategory: ev.referrerCategory,
+          lastSeenAt: nowIso,
+          startedDate: todayKey,
+          pageViewsCount: (sessRow.pageViewsCount || 0) + (shouldCountPageview ? 1 : 0),
+        });
+      }
+
+      if (isNewUniqueToday || shouldCountPageview) {
+        const dailyRes = await tablesDB.listRows(DB_ID, 'visitor_daily_stats', [
+          Query.equal('dateKey', todayKey),
+          Query.limit(1),
+        ]);
+        const dailyRow = dailyRes.rows?.[0];
+        const mobileInc = shouldCountPageview && ev.deviceCategory === 'mobile' ? 1 : 0;
+        const desktopInc = shouldCountPageview && ev.deviceCategory !== 'mobile' ? 1 : 0;
+
+        if (!dailyRow) {
+          await tablesDB.createRow(DB_ID, 'visitor_daily_stats', ID.unique(), {
+            dateKey: todayKey,
+            uniqueVisitors: isNewUniqueToday ? 1 : 0,
+            pageViews: shouldCountPageview ? 1 : 0,
+            mobileViews: mobileInc,
+            desktopViews: desktopInc,
+          });
+        } else {
+          await tablesDB.updateRow(DB_ID, 'visitor_daily_stats', dailyRow.$id, {
+            uniqueVisitors: (dailyRow.uniqueVisitors || 0) + (isNewUniqueToday ? 1 : 0),
+            pageViews: (dailyRow.pageViews || 0) + (shouldCountPageview ? 1 : 0),
+            mobileViews: (dailyRow.mobileViews || 0) + mobileInc,
+            desktopViews: (dailyRow.desktopViews || 0) + desktopInc,
+          });
+        }
+      }
+
+      if (shouldCountPageview) {
+        const pageRes = await tablesDB.listRows(DB_ID, 'visitor_page_stats', [
+          Query.equal('pageKey', ev.path),
+          Query.limit(1),
+        ]);
+        const pageRow = pageRes.rows?.[0];
+        if (!pageRow) {
+          await tablesDB.createRow(DB_ID, 'visitor_page_stats', ID.unique(), {
+            pageKey: ev.path,
+            contentType: ev.contentType,
+            slug: ev.slug,
+            titleHint: ev.titleHint,
+            pageViews: 1,
+            lastViewedAt: nowIso,
+          });
+        } else {
+          await tablesDB.updateRow(DB_ID, 'visitor_page_stats', pageRow.$id, {
+            pageViews: (pageRow.pageViews || 0) + 1,
+            lastViewedAt: nowIso,
+            ...(ev.titleHint ? { titleHint: ev.titleHint } : {}),
+          });
+        }
+
+        // Bounded session retention cleanup (~5% opportunistic pass for sessions stale > 48 hours)
+        if (Math.random() < 0.05) {
+          const cutoffIso = new Date(nowMs - 48 * 60 * 60 * 1000).toISOString();
+          const stale = await tablesDB.listRows(DB_ID, 'visitor_sessions', [
+            Query.lessThan('lastSeenAt', cutoffIso),
+            Query.limit(15),
+          ]).catch(() => ({ rows: [] }));
+          for (const oldRow of stale.rows || []) {
+            await tablesDB.deleteRow(DB_ID, 'visitor_sessions', oldRow.$id).catch(() => {});
+          }
+        }
+      }
+
+      return res.json(
+        { ok: true, counted: shouldCountPageview, deduped: isDedupedPageview },
+        isDedupedPageview ? 202 : 200,
+        CORS_HEADERS
+      );
     }
 
     // ------------------------------------------------------------------------
@@ -501,7 +791,6 @@ export default async ({ req, res, log, error }) => {
     error(`[Public API Exception] ${err.message}`);
     return res.json({
       error: 'Internal Server Error',
-      message: err.message,
     }, 500, CORS_HEADERS);
   }
 };

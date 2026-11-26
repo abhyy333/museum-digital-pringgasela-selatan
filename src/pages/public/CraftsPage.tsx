@@ -32,6 +32,11 @@ export const CraftsPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setSelectedType(searchParams.get('craftType') || 'all');
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchCrafts();
   }, []);
 

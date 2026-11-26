@@ -37,6 +37,11 @@ export const MotifsPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setSelectedCategory(searchParams.get('category') || 'all');
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchMotifs();
   }, []);
 

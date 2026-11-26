@@ -363,6 +363,15 @@ export const EntityMediaManager: React.FC<EntityMediaManagerProps> = ({
             const info = accessMap.get(fid);
             const existsInStorage = info ? info.exists : true;
             const isPub = Boolean(info?.isPublic);
+            const ext = (info?.name || fid || '').split('.').pop()?.toLowerCase() || '';
+            const isQuarantined = Boolean(
+              info?.quarantined ||
+                (info?.sizeOriginal && info.sizeOriginal > 20_000_000) ||
+                info?.mimeType === 'image/svg+xml' ||
+                info?.mimeType?.includes('zip') ||
+                ext === 'svg' ||
+                ext === 'zip'
+            );
             const isBusy = togglingId === fid;
 
             return (
@@ -402,6 +411,10 @@ export const EntityMediaManager: React.FC<EntityMediaManagerProps> = ({
                       ) : isPub ? (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                           <Globe className="w-2.5 h-2.5" /> Publik
+                        </span>
+                      ) : isQuarantined ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 text-amber-200 text-[10px] font-bold">
+                          <ShieldAlert className="w-2.5 h-2.5" /> Karantina
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold">
@@ -452,16 +465,24 @@ export const EntityMediaManager: React.FC<EntityMediaManagerProps> = ({
                   {canPublish && existsInStorage && (
                     <button
                       type="button"
-                      disabled={isBusy}
+                      disabled={isBusy || (!isPub && isQuarantined)}
                       onClick={() => handleToggleAccess(fid, item.captionId || fid, !isPub)}
-                      title={isPub ? 'Tarik ke Privat' : 'Publikasikan Media Ini'}
-                      className={`px-2 py-1 rounded text-[10px] font-semibold border transition-colors mr-1 ${
+                      title={
+                        !isPub && isQuarantined
+                          ? 'Berkas karantina (>20 MB / SVG / ZIP) tidak dapat dipublikasikan'
+                          : isPub
+                          ? 'Tarik ke Privat'
+                          : 'Publikasikan Media Ini'
+                      }
+                      className={`px-2 py-1 rounded text-[10px] font-semibold border transition-colors mr-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isPub
                           ? 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+                          : isQuarantined
+                          ? 'bg-slate-100 border-slate-300 text-slate-600'
                           : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
                       }`}
                     >
-                      {isBusy ? '...' : isPub ? 'Privatkan' : 'Publikasikan'}
+                      {isBusy ? '...' : isPub ? 'Privatkan' : isQuarantined ? 'Karantina' : 'Publikasikan'}
                     </button>
                   )}
                   {idx !== 0 && (

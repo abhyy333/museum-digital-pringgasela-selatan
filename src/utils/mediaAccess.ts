@@ -1,8 +1,13 @@
-import { Models, Permission, Query, Role } from 'appwrite';
-import { storage } from '../appwrite/client';
-import { setMediaVisibilityViaGateway } from '../appwrite/adminMediaApi';
+import { Permission, Role } from 'appwrite';
+import {
+  GatewayStorageFileSummary,
+  listMediaFilesViaGateway,
+  setMediaVisibilityViaGateway,
+} from '../appwrite/adminMediaApi';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { formatAppwriteError } from './audit';
+
+export type StorageFileSummary = GatewayStorageFileSummary;
 
 export interface StorageAccessInfo {
   fileId: string;
@@ -12,6 +17,8 @@ export interface StorageAccessInfo {
   name?: string;
   mimeType?: string;
   sizeOriginal?: number;
+  quarantined?: boolean;
+  quarantineReason?: string | null;
 }
 
 export function isStorageFilePublic(permissions?: string[] | null): boolean {
@@ -21,16 +28,14 @@ export function isStorageFilePublic(permissions?: string[] | null): boolean {
 
 /**
  * Default permissions for newly uploaded media files:
- * Strictly private to museum-admins team members. Does NOT grant client update(user)
- * so KKN accounts cannot self-publish uploaded files via storage.updateFile.
- * Bucket ACL grants update to 'desa'/'owner' and delete exclusively to 'owner'.
+ * Strictly read-only for museum-admins team members. No client update or delete permission.
  */
 export function buildPrivateMediaPermissions(): string[] {
   return [Permission.read(Role.team(APPWRITE_CONFIG.adminTeamId))];
 }
 
 /**
- * Explicit public media permissions (only assigned by Admin Desa / Super Admin).
+ * Explicit public media permissions (only assigned by Admin Desa / Super Admin via Server Gateway).
  */
 export function buildPublicMediaPermissions(): string[] {
   return [
@@ -41,15 +46,11 @@ export function buildPublicMediaPermissions(): string[] {
 
 export async function fetchBucketFileAccessMap(): Promise<{
   byId: Map<string, StorageAccessInfo>;
-  files: Models.File[];
+  files: StorageFileSummary[];
 }> {
   const byId = new Map<string, StorageAccessInfo>();
   try {
-    const res = await storage.listFiles({
-      bucketId: APPWRITE_CONFIG.storageBucketId,
-      queries: [Query.limit(100), Query.orderDesc('$createdAt')],
-    });
-    const files = res.files || [];
+    const files = await listMediaFilesViaGateway();
     for (const f of files) {
       const perms = f.$permissions || [];
       byId.set(f.$id, {
@@ -60,6 +61,8 @@ export async function fetchBucketFileAccessMap(): Promise<{
         name: f.name,
         mimeType: f.mimeType,
         sizeOriginal: f.sizeOriginal,
+        quarantined: Boolean(f.quarantined),
+        quarantineReason: f.quarantineReason ?? null,
       });
     }
     return { byId, files };
@@ -72,24 +75,8 @@ export async function getStorageFileAccess(fileId: string): Promise<StorageAcces
   if (!fileId) {
     return { fileId: '', exists: false, isPublic: false, permissions: [] };
   }
-  try {
-    const file = await storage.getFile({
-      bucketId: APPWRITE_CONFIG.storageBucketId,
-      fileId,
-    });
-    const perms = file.$permissions || [];
-    return {
-      fileId: file.$id,
-      exists: true,
-      isPublic: isStorageFilePublic(perms),
-      permissions: perms,
-      name: file.name,
-      mimeType: file.mimeType,
-      sizeOriginal: file.sizeOriginal,
-    };
-  } catch {
-    return { fileId, exists: false, isPublic: false, permissions: [] };
-  }
+  const { byId } = await fetchBucketFileAccessMap();
+  return byId.get(fileId) || { fileId, exists: false, isPublic: false, permissions: [] };
 }
 
 export async function setMediaFilePublicAccess(params: {
