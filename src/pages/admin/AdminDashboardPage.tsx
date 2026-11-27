@@ -1,25 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
-  ArrowRight,
+  ArrowUpRight,
   BookOpen,
-  CheckCircle2,
   Clock,
-  Compass,
   Eye,
   FileEdit,
   Globe,
   History,
-  Image,
+  Image as ImageIcon,
   Monitor,
+  Radio,
+  RefreshCw,
   Shield,
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Tablet,
   Users,
-  Wifi,
 } from 'lucide-react';
 import { Query } from 'appwrite';
 import { tablesDB } from '../../appwrite/client';
@@ -27,12 +25,13 @@ import { APPWRITE_CONFIG } from '../../appwrite/config';
 import {
   AdminAnalyticsSummary,
   fetchAdminAnalyticsSummary,
-  subscribeAnalyticsRealtime,
+  subscribeToVisitorRealtime,
 } from '../../appwrite/analyticsApi';
 import { useAuth } from '../../context/AuthContext';
 import { AuditLog } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { TextileDivider, TextileMotifBand } from '../../components/common/TextileMotifAccent';
+import { Badge } from '../../components/common/Badge';
+import { TextileMotifAccent } from '../../components/common/TextileMotifAccent';
 import { VisitorTrendChart } from '../../components/admin/VisitorTrendChart';
 import { getFilePreviewUrl } from '../../utils/media';
 
@@ -44,44 +43,27 @@ interface ContentCounts {
   contributors: number;
   media: number;
   drafts: number;
-  publishedLocal: number;
+  published: number;
 }
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
-  home: 'Beranda Utama',
   motif: 'Motif Tenun',
   craft: 'Kriya & Tekstil',
   culture: 'Tradisi Budaya',
-  curatorial: 'Ulasan Kuratorial',
   history: 'Sejarah Desa',
-  about: 'Profil Museum',
-  catalog: 'Katalog Publik',
+  curatorial: 'Kuratorial',
+  about: 'Tentang Museum',
+  home: 'Beranda',
 };
 
-const REFERRER_LABELS: Record<string, string> = {
-  direct: 'Langsung',
-  internal: 'Navigasi Internal',
-  search: 'Mesin Pencari',
-  social: 'Media Sosial',
-  other: 'Tautan Luar',
-};
-
-function formatRelativeTime(isoString?: string): string {
-  if (!isoString) return '-';
-  const diffSec = Math.max(0, Math.round((Date.now() - Date.parse(isoString)) / 1000));
-  if (diffSec < 15) return 'baru saja';
-  if (diffSec < 60) return `${diffSec} dtk lalu`;
-  const diffMin = Math.round(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} mnt lalu`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} jam lalu`;
-  return new Date(isoString).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-  });
+function formatTimeOnly(iso?: string): string {
+  if (!iso) return '—';
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '—';
+  return dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function isServerGatewayAudit(log: AuditLog): boolean {
+function isGatewayAuthoritativeLog(log: AuditLog): boolean {
   if (!log.changesJson) return false;
   try {
     const parsed = JSON.parse(log.changesJson);
@@ -92,7 +74,7 @@ function isServerGatewayAudit(log: AuditLog): boolean {
 }
 
 export const AdminDashboardPage: React.FC = () => {
-  const { user, role, canPublish, canDelete } = useAuth();
+  const { user, role, canPublish, canDelete, refreshAuth } = useAuth();
   const [counts, setCounts] = useState<ContentCounts>({
     motifs: 0,
     crafts: 0,
@@ -101,476 +83,437 @@ export const AdminDashboardPage: React.FC = () => {
     contributors: 0,
     media: 0,
     drafts: 0,
-    publishedLocal: 0,
+    published: 0,
   });
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
-  const [cmsLoading, setCmsLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(true);
 
-  const [range, setRange] = useState<7 | 30>(30);
+  const [daysWindow, setDaysWindow] = useState<7 | 30>(30);
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
-  const rangeRef = useRef<7 | 30>(30);
-  rangeRef.current = range;
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
-  const loadAnalytics = useCallback(async (selectedRange: 7 | 30, silent = false) => {
-    try {
-      if (!silent) setAnalyticsLoading(true);
-      setAnalyticsError(null);
-      const summary = await fetchAdminAnalyticsSummary(selectedRange);
-      setAnalytics(summary);
-    } catch (err: any) {
-      if (!silent) {
+  const loadAnalytics = useCallback(
+    async (quiet = false) => {
+      try {
+        if (!quiet) setAnalyticsLoading(true);
+        setAnalyticsError(null);
+        const summary = await fetchAdminAnalyticsSummary(30);
+        setAnalytics(summary);
+      } catch (err: any) {
+        if (err?.status === 401) {
+          refreshAuth().catch(() => {});
+        }
         setAnalyticsError(err?.message || 'Gagal memuat analitik pengunjung.');
+      } finally {
+        if (!quiet) setAnalyticsLoading(false);
+      }
+    },
+    [refreshAuth]
+  );
+
+  const loadCmsSummary = useCallback(async () => {
+    try {
+      setContentLoading(true);
+      const [motifsRes, craftsRes, cultsRes, histRes, contribsRes, mediaRes] =
+        await Promise.allSettled([
+          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'weaving_motifs', [Query.limit(100)]),
+          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'crafts', [Query.limit(100)]),
+          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'cultures', [Query.limit(100)]),
+          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'village_history', [Query.limit(100)]),
+          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'contributors', [Query.limit(100)]),
+          tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'media_assets', [Query.limit(100)]),
+        ]);
+
+      let draftsCount = 0;
+      let publishedCount = 0;
+      for (const res of [motifsRes, craftsRes, cultsRes, histRes]) {
+        if (res.status === 'fulfilled') {
+          for (const r of res.value.rows || []) {
+            if ((r as any).status === 'published') publishedCount += 1;
+            else if ((r as any).status === 'draft' || (r as any).status === 'in_review') draftsCount += 1;
+          }
+        }
+      }
+
+      setCounts({
+        motifs: motifsRes.status === 'fulfilled' ? motifsRes.value.total : 0,
+        crafts: craftsRes.status === 'fulfilled' ? craftsRes.value.total : 0,
+        cultures: cultsRes.status === 'fulfilled' ? cultsRes.value.total : 0,
+        history: histRes.status === 'fulfilled' ? histRes.value.total : 0,
+        contributors: contribsRes.status === 'fulfilled' ? contribsRes.value.total : 0,
+        media: mediaRes.status === 'fulfilled' ? mediaRes.value.total : 0,
+        drafts: draftsCount,
+        published: publishedCount,
+      });
+
+      if (canPublish) {
+        try {
+          const logsRes = await tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'audit_logs', [
+            Query.orderDesc('$createdAt'),
+            Query.limit(6),
+          ]);
+          setRecentLogs(logsRes.rows as unknown as AuditLog[]);
+        } catch {
+          setRecentLogs([]);
+        }
       }
     } finally {
-      if (!silent) setAnalyticsLoading(false);
+      setContentLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    async function loadCmsSnapshot() {
-      try {
-        setCmsLoading(true);
-        const [motifsRes, craftsRes, cultsRes, histRes, contribsRes, mediaRes] =
-          await Promise.allSettled([
-            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'weaving_motifs', [Query.limit(100)]),
-            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'crafts', [Query.limit(100)]),
-            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'cultures', [Query.limit(100)]),
-            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'village_history', [Query.limit(100)]),
-            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'contributors', [Query.limit(100)]),
-            tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'media_assets', [Query.limit(100)]),
-          ]);
-
-        let draftsCount = 0;
-        let publishedCount = 0;
-        for (const res of [motifsRes, craftsRes, cultsRes, histRes]) {
-          if (res.status === 'fulfilled') {
-            for (const row of (res.value.rows || []) as Array<{ status?: string }>) {
-              if (row.status === 'published') publishedCount += 1;
-              else if (row.status === 'draft' || row.status === 'in_review') draftsCount += 1;
-            }
-          }
-        }
-
-        if (mounted) {
-          setCounts({
-            motifs: motifsRes.status === 'fulfilled' ? motifsRes.value.total : 0,
-            crafts: craftsRes.status === 'fulfilled' ? craftsRes.value.total : 0,
-            cultures: cultsRes.status === 'fulfilled' ? cultsRes.value.total : 0,
-            history: histRes.status === 'fulfilled' ? histRes.value.total : 0,
-            contributors: contribsRes.status === 'fulfilled' ? contribsRes.value.total : 0,
-            media: mediaRes.status === 'fulfilled' ? mediaRes.value.total : 0,
-            drafts: draftsCount,
-            publishedLocal: publishedCount,
-          });
-        }
-
-        if (canPublish && mounted) {
-          try {
-            const logsRes = await tablesDB.listRows(APPWRITE_CONFIG.databaseId, 'audit_logs', [
-              Query.orderDesc('$createdAt'),
-              Query.limit(8),
-            ]);
-            if (mounted) setRecentLogs(logsRes.rows as unknown as AuditLog[]);
-          } catch {
-            if (mounted) setRecentLogs([]);
-          }
-        }
-      } finally {
-        if (mounted) setCmsLoading(false);
-      }
-    }
-
-    loadCmsSnapshot();
-    return () => {
-      mounted = false;
-    };
   }, [canPublish]);
 
   useEffect(() => {
-    loadAnalytics(range);
-  }, [range, loadAnalytics]);
+    void loadCmsSummary();
+    void loadAnalytics(false);
+  }, [loadCmsSummary, loadAnalytics]);
 
-  // Realtime Appwrite subscription + gentle 30s expiry refresh so active 2-min window stays accurate
+  // Realtime Appwrite subscription + polite 45s background sync fallback
   useEffect(() => {
-    const unsubscribe = subscribeAnalyticsRealtime(() => {
-      loadAnalytics(rangeRef.current, true);
-    });
-    const timer = setInterval(() => {
+    const unsub = subscribeToVisitorRealtime(
+      () => {
+        void loadAnalytics(true);
+      },
+      (connected) => setRealtimeConnected(connected)
+    );
+
+    const pollTimer = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        loadAnalytics(rangeRef.current, true);
+        void loadAnalytics(true);
       }
-    }, 30_000);
+    }, 45_000);
 
     return () => {
-      unsubscribe();
-      clearInterval(timer);
+      unsub();
+      clearInterval(pollTimer);
     };
   }, [loadAnalytics]);
 
-  if (cmsLoading && !analytics) {
-    return <LoadingSpinner message="Menyiapkan ruang kendali kurator..." size="lg" />;
+  if (contentLoading && analyticsLoading && !analytics) {
+    return <LoadingSpinner message="Menyiapkan ruang kontrol kurator museum..." size="lg" />;
   }
 
-  const todayFormatted = new Intl.DateTimeFormat('id-ID', {
+  const todayFormatted = new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    timeZone: 'Asia/Makassar',
-  }).format(new Date());
+  });
 
-  const roleDisplayName =
-    role === 'super_admin' ? 'Super Admin' : role === 'admin_desa' ? 'Admin Desa' : 'Admin KKN';
+  const roleLabel =
+    role === 'super_admin'
+      ? 'Super Admin'
+      : role === 'admin_desa'
+      ? 'Admin Desa'
+      : role === 'admin_kkn'
+      ? 'Admin KKN'
+      : 'Kurator';
 
-  const publishedTotal = analytics?.publishedCounts?.total ?? counts.publishedLocal;
-  const activeCount = analytics?.activeVisitors ?? 0;
+  const publishedDisplay = analytics?.publishedContentCount ?? counts.published;
 
   const contentSections = [
     {
       label: 'Motif Tenun',
-      value: counts.motifs,
-      description: 'Ensiklopedia ragam hias',
+      count: counts.motifs,
+      description: 'Ensiklopedia motif pusaka',
       to: '/admin/motifs',
       icon: BookOpen,
     },
     {
       label: 'Kerajinan & Tekstil',
-      value: counts.crafts,
-      description: 'Gedogan, sesek & sasambo',
+      count: counts.crafts,
+      description: 'Karya tenun & kriya lokal',
       to: '/admin/crafts',
       icon: Sparkles,
     },
     {
       label: 'Tradisi Budaya',
-      value: counts.cultures,
-      description: 'Dzikir Saman & adat desa',
+      count: counts.cultures,
+      description: 'Ritual adat & Dzikir Saman',
       to: '/admin/cultures',
       icon: Shield,
     },
     {
       label: 'Sejarah Desa',
-      value: counts.history,
-      description: 'Linimasa peradaban desa',
+      count: counts.history,
+      description: 'Kronik peradaban desa',
       to: '/admin/history',
       icon: History,
     },
     {
       label: 'Tokoh & Penenun',
-      value: counts.contributors,
-      description: 'Maestro & narasumber',
+      count: counts.contributors,
+      description: 'Maestro & narasumber budaya',
       to: '/admin/contributors',
       icon: Users,
     },
     {
       label: 'Draf & Review',
-      value: counts.drafts,
-      description: 'Menunggu pengesahan kurasi',
+      count: counts.drafts,
+      description: 'Menunggu verifikasi kurasi',
       to: '/admin/motifs',
       icon: FileEdit,
     },
     {
       label: 'Konten Diterbitkan',
-      value: publishedTotal,
-      description: 'Tayang di website publik',
+      count: publishedDisplay,
+      description: 'Aktif di website publik',
       to: '/admin/motifs',
       icon: Globe,
     },
     {
-      label: 'Aset Media',
-      value: counts.media,
-      description: 'Arsip terverifikasi gateway',
+      label: 'Pustaka Media',
+      count: counts.media,
+      description: 'Foto, video, audio & arsip',
       to: '/admin/media',
-      icon: Image,
+      icon: ImageIcon,
     },
   ];
 
   return (
-    <div className="space-y-8">
-      {/* A. EDITORIAL MUSEUM CONTROL HEADER */}
-      <header className="relative overflow-hidden bg-surface border border-softLinen rounded-[4px] px-6 py-5 sm:px-8 sm:py-6">
-        <TextileMotifBand className="absolute inset-0" />
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="space-y-7">
+      {/* A. Editorial Museum Header */}
+      <header className="relative overflow-hidden bg-surface border border-softLinen rounded-md px-6 py-5 sm:px-8 sm:py-6">
+        <TextileMotifAccent className="hidden sm:block absolute -right-6 -top-6 w-36 h-36 text-terracotta opacity-[0.055] pointer-events-none select-none" />
+
+        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5 text-xs text-mutedBrown">
-              <span className="font-medium uppercase tracking-[0.14em] text-terracotta">
+              <span className="font-semibold uppercase tracking-[0.16em] text-terracotta">
                 Museum Digital Pringgasela Selatan
               </span>
               <span aria-hidden="true">•</span>
-              <span>{todayFormatted} WITA</span>
+              <span>{todayFormatted}</span>
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-charcoal tracking-tight">
+
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal tracking-tight">
               Selamat datang, Kurator
             </h1>
-            <p className="text-sm text-charcoal/75 max-w-2xl">
-              Pusat kendali pelestarian arsip tenun, validasi naskah budaya, dan pemantauan kunjungan publik secara langsung
-              {user?.name ? ` (${user.name} — ${roleDisplayName})` : ''}.
+
+            <p className="text-xs sm:text-sm text-muted max-w-2xl">
+              Pusat kendali kurasi warisan budaya dan pemantauan kunjungan publik secara langsung untuk{' '}
+              <strong className="text-charcoal font-medium">{user?.name || user?.email}</strong> ({roleLabel}).
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <div
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[3px] border border-softLinen bg-ivory text-xs text-charcoal"
-              title="Diperbarui otomatis via Appwrite Realtime dan sinkronisasi 30 detik"
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs border text-xs font-medium ${
+                realtimeConnected
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                  : 'bg-ivory border-softLinen text-muted'
+              }`}
             >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  analyticsError ? 'bg-amber-600' : 'bg-emerald-600 animate-pulse'
+              <Radio
+                className={`w-3.5 h-3.5 ${
+                  realtimeConnected ? 'text-emerald-600 animate-pulse' : 'text-mutedBrown'
                 }`}
               />
-              <Wifi className="w-3.5 h-3.5 text-indigoTextile" />
-              <span className="font-medium">
-                {analyticsError ? 'Mode Sinkron Terbatas' : 'Analitik Realtime Aktif'}
-              </span>
-            </div>
+              <span>{realtimeConnected ? 'Realtime Aktif' : 'Sinkronisasi Berkala'}</span>
+            </span>
 
-            <Link
-              to="/admin/media"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[3px] bg-terracotta hover:bg-terracotta-hover text-ivory text-xs font-medium transition-colors"
+            <button
+              type="button"
+              onClick={() => void loadAnalytics(false)}
+              disabled={analyticsLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-ivory hover:bg-aged border border-softLinen text-xs font-semibold text-charcoal transition-colors disabled:opacity-50"
             >
-              <span>Kelola Media</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+              <RefreshCw className={`w-3.5 h-3.5 ${analyticsLoading ? 'animate-spin' : ''}`} />
+              <span>Segarkan</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* B. REALTIME VISITOR OVERVIEW */}
-      <section aria-labelledby="realtime-overview-heading" className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2
-            id="realtime-overview-heading"
-            className="text-xs font-semibold uppercase tracking-[0.14em] text-mutedBrown"
-          >
-            Ringkasan Pengunjung & Tayangan Publik
-          </h2>
-          {analytics?.lastUpdatedAt && (
-            <span className="text-xs text-mutedBrown flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              Diperbarui {formatRelativeTime(analytics.lastUpdatedAt)}
-            </span>
-          )}
+      {/* B. Realtime Visitor Overview (4 Key Metrics) */}
+      <section aria-label="Ringkasan Pengunjung & Kesiapan Konten" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="bg-surface border border-softLinen rounded-md p-5 space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-mutedBrown">
+            <span>Pengunjung Aktif</span>
+            <Activity className="w-4 h-4 text-emerald-700" />
+          </div>
+          <p className="font-serif text-3xl font-bold text-charcoal">
+            {analyticsLoading && !analytics ? '—' : analytics?.activeVisitors ?? 0}
+          </p>
+          <p className="text-xs text-muted">
+            Sesi publik aktif dalam 2 menit terakhir
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* 1. Active Visitors */}
-          <div className="bg-surface border border-softLinen rounded-[4px] p-5 space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium text-mutedBrown">
-              <span>Pengunjung Aktif</span>
-              <Activity className="w-4 h-4 text-indigoTextile" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-semibold text-charcoal tabular-nums">
-                {analyticsLoading && !analytics ? '—' : activeCount}
-              </p>
-              {activeCount > 0 && (
-                <span className="text-[11px] font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-[2px]">
-                  Sedang membaca
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-mutedBrown">Sesi anonim aktif dalam 2 menit terakhir</p>
+        <div className="bg-surface border border-softLinen rounded-md p-5 space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-mutedBrown">
+            <span>Pengunjung Unik Hari Ini</span>
+            <Users className="w-4 h-4 text-indigoTextile" />
           </div>
+          <p className="font-serif text-3xl font-bold text-charcoal">
+            {analyticsLoading && !analytics ? '—' : analytics?.todayUniqueVisitors ?? 0}
+          </p>
+          <p className="text-xs text-muted">
+            Sesi unik anonim tercatat hari ini (WITA)
+          </p>
+        </div>
 
-          {/* 2. Unique Visitors Today */}
-          <div className="bg-surface border border-softLinen rounded-[4px] p-5 space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium text-mutedBrown">
-              <span>Pengunjung Unik Hari Ini</span>
-              <Compass className="w-4 h-4 text-terracotta" />
-            </div>
-            <p className="text-3xl font-semibold text-charcoal tabular-nums">
-              {analyticsLoading && !analytics ? '—' : analytics?.uniqueVisitorsToday ?? 0}
-            </p>
-            <p className="text-xs text-mutedBrown">Sesi kunjungan berbeda sejak 00:00 WITA</p>
+        <div className="bg-surface border border-softLinen rounded-md p-5 space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-mutedBrown">
+            <span>Total Page Views</span>
+            <Eye className="w-4 h-4 text-terracotta" />
           </div>
+          <p className="font-serif text-3xl font-bold text-charcoal">
+            {analyticsLoading && !analytics ? '—' : analytics?.totalPageViews ?? 0}
+          </p>
+          <p className="text-xs text-muted">
+            Hari ini: <strong className="text-charcoal">{analytics?.todayPageViews ?? 0}</strong> tampilan halaman
+          </p>
+        </div>
 
-          {/* 3. Total Page Views */}
-          <div className="bg-surface border border-softLinen rounded-[4px] p-5 space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium text-mutedBrown">
-              <span>Total Page Views</span>
-              <Eye className="w-4 h-4 text-terracotta" />
-            </div>
-            <p className="text-3xl font-semibold text-charcoal tabular-nums">
-              {analyticsLoading && !analytics ? '—' : analytics?.totalPageViews ?? 0}
-            </p>
-            <p className="text-xs text-mutedBrown">
-              Hari ini:{' '}
-              <strong className="font-medium text-charcoal tabular-nums">
-                {analytics?.pageViewsToday ?? 0}
-              </strong>{' '}
-              tayangan halaman
-            </p>
+        <div className="bg-surface border border-softLinen rounded-md p-5 space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-mutedBrown">
+            <span>Konten Diterbitkan</span>
+            <Globe className="w-4 h-4 text-terracotta" />
           </div>
-
-          {/* 4. Published Content */}
-          <div className="bg-surface border border-softLinen rounded-[4px] p-5 space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium text-mutedBrown">
-              <span>Konten Diterbitkan</span>
-              <Globe className="w-4 h-4 text-indigoTextile" />
-            </div>
-            <p className="text-3xl font-semibold text-charcoal tabular-nums">{publishedTotal}</p>
-            <p className="text-xs text-mutedBrown">
-              Motif, kriya, tradisi & babak sejarah tayang
-            </p>
-          </div>
+          <p className="font-serif text-3xl font-bold text-charcoal">
+            {publishedDisplay}
+          </p>
+          <p className="text-xs text-muted">
+            Entri publik aktif ({counts.drafts} dalam antrean draf/review)
+          </p>
         </div>
       </section>
 
-      {/* C. VISITOR ANALYTICS CHART + D. REALTIME VISITOR ACTIVITY */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8">
+      {/* C & D. Visitor Trend Chart + Realtime Visitor Activity */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
+        <div className="xl:col-span-8">
           <VisitorTrendChart
-            data={analytics?.trends || []}
-            range={range}
-            onRangeChange={setRange}
-            loading={analyticsLoading && !analytics}
+            series={analytics?.dailySeries || []}
+            daysWindow={daysWindow}
+            onDaysWindowChange={setDaysWindow}
+            loading={analyticsLoading}
             error={analyticsError}
-            onRetry={() => loadAnalytics(range)}
+            onRetry={() => void loadAnalytics(false)}
           />
         </div>
 
-        {/* D. REALTIME VISITOR ACTIVITY PANEL */}
-        <section
-          aria-labelledby="realtime-activity-heading"
-          className="lg:col-span-4 bg-surface border border-softLinen rounded-[4px] p-5 space-y-4"
-        >
-          <div className="flex items-center justify-between border-b border-softLinen/80 pb-3">
-            <div>
-              <h2
-                id="realtime-activity-heading"
-                className="font-serif text-lg font-semibold text-charcoal"
-              >
-                Aktivitas Kunjungan
-              </h2>
-              <p className="text-xs text-mutedBrown">
-                Jejak halaman anonim tanpa identitas pribadi
-              </p>
-            </div>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-[3px] bg-indigoTextile/10 text-indigoTextile tabular-nums">
-              {activeCount} aktif
-            </span>
-          </div>
-
-          {/* Device Distribution Today */}
-          {analytics && (
-            <div className="grid grid-cols-3 gap-2 text-center bg-aged/45 border border-softLinen/70 rounded-[3px] p-2.5 text-xs">
+        <aside className="xl:col-span-4 bg-surface border border-softLinen rounded-md p-5 flex flex-col justify-between space-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-softLinen/80 pb-3">
               <div>
-                <span className="inline-flex items-center gap-1 text-mutedBrown text-[11px]">
-                  <Monitor className="w-3 h-3" /> Desktop
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mutedBrown block">
+                  Pantauan Langsung
                 </span>
-                <p className="font-semibold text-charcoal tabular-nums">
-                  {analytics.deviceBreakdown.desktop}
-                </p>
+                <h2 className="font-serif text-lg font-bold text-charcoal">
+                  Aktivitas Pengunjung
+                </h2>
               </div>
-              <div className="border-x border-softLinen/80">
-                <span className="inline-flex items-center gap-1 text-mutedBrown text-[11px]">
-                  <Tablet className="w-3 h-3" /> Tablet
-                </span>
-                <p className="font-semibold text-charcoal tabular-nums">
-                  {analytics.deviceBreakdown.tablet}
-                </p>
-              </div>
-              <div>
-                <span className="inline-flex items-center gap-1 text-mutedBrown text-[11px]">
-                  <Smartphone className="w-3 h-3" /> Seluler
-                </span>
-                <p className="font-semibold text-charcoal tabular-nums">
-                  {analytics.deviceBreakdown.mobile}
-                </p>
-              </div>
+              <span className="px-2.5 py-1 rounded-xs bg-aged border border-naturalBeige/60 text-xs font-bold text-charcoal">
+                {analytics?.activeVisitors ?? 0} Aktif
+              </span>
             </div>
-          )}
 
-          {!analytics || analytics.recentActivity.length === 0 ? (
-            <div className="py-8 text-center space-y-1.5 border border-dashed border-softLinen rounded-[3px] bg-sand-50/50 px-3">
-              <p className="text-xs font-medium text-charcoal">Belum ada aktivitas kunjungan terkini</p>
-              <p className="text-xs text-mutedBrown">
-                Kunjungan publik akan muncul otomatis di panel ini.
-              </p>
+            {/* Recent Page Activity (Anonymized — Zero PII) */}
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-mutedBrown">
+                Kunjungan Halaman Terbaru
+              </h3>
+              {!analytics || analytics.recentActivity.length === 0 ? (
+                <p className="text-xs text-muted py-4 text-center bg-ivory/60 rounded border border-softLinen/60">
+                  Belum ada aktivitas pengunjung publik tercatat.
+                </p>
+              ) : (
+                <ul className="divide-y divide-softLinen/70">
+                  {analytics.recentActivity.slice(0, 5).map((item, idx) => (
+                    <li key={`${item.path}-${item.lastSeenAt}-${idx}`} className="py-2 flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              item.isActive ? 'bg-emerald-600' : 'bg-naturalBeige'
+                            }`}
+                          />
+                          <span className="font-medium text-charcoal truncate" title={item.pageTitle}>
+                            {item.pageTitle || item.path}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-muted font-mono block pl-3 truncate">
+                          {item.path}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 text-[11px] text-muted">
+                        {item.deviceCategory === 'mobile' ? (
+                          <Smartphone className="w-3.5 h-3.5 text-mutedBrown" aria-label="Mobile" />
+                        ) : (
+                          <Monitor className="w-3.5 h-3.5 text-mutedBrown" aria-label="Desktop" />
+                        )}
+                        <span>{formatTimeOnly(item.lastSeenAt)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          ) : (
-            <ul className="divide-y divide-softLinen/70 text-xs max-h-[260px] overflow-y-auto pr-1">
-              {analytics.recentActivity.map((item, idx) => (
-                <li key={`${item.path}-${item.lastSeenAt}-${idx}`} className="py-2.5 flex items-start justify-between gap-2">
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          item.isActive ? 'bg-emerald-600' : 'bg-naturalBeige'
-                        }`}
-                      />
-                      <span className="font-medium text-charcoal truncate" title={item.path}>
-                        {item.path}
+
+            {/* Most Visited Routes Compact */}
+            {analytics && analytics.topPages.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-softLinen/80">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-mutedBrown">
+                  Rute Paling Banyak Dikunjungi
+                </h3>
+                <div className="space-y-1.5">
+                  {analytics.topPages.slice(0, 4).map((pg) => (
+                    <div key={pg.pageKey} className="flex items-center justify-between text-xs gap-2">
+                      <span className="text-charcoal/85 truncate font-mono text-[11px]">
+                        {pg.pageKey}
+                      </span>
+                      <span className="font-semibold text-terracotta shrink-0">
+                        {pg.pageViews} views
                       </span>
                     </div>
-                    <p className="text-[11px] text-mutedBrown pl-3 truncate">
-                      {REFERRER_LABELS[item.referrerCategory] || 'Langsung'} •{' '}
-                      {item.deviceCategory === 'mobile'
-                        ? 'Seluler'
-                        : item.deviceCategory === 'tablet'
-                        ? 'Tablet'
-                        : 'Desktop'}
-                    </p>
-                  </div>
-                  <span className="text-[11px] text-mutedBrown shrink-0 tabular-nums">
-                    {formatRelativeTime(item.lastSeenAt)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-3 border-t border-softLinen/80 flex items-center justify-between text-[11px] text-muted">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              Pembaruan terakhir: {formatTimeOnly(analytics?.generatedAt)}
+            </span>
+            <span>Tanpa PII</span>
+          </div>
+        </aside>
       </div>
 
-      <TextileDivider />
-
-      {/* E. CONTENT OVERVIEW */}
-      <section aria-labelledby="content-overview-heading" className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+      {/* E. Content Overview */}
+      <section className="space-y-3" aria-labelledby="ringkasan-konten-heading">
+        <div className="flex items-end justify-between border-b border-softLinen pb-2.5">
           <div>
-            <h2 id="content-overview-heading" className="font-serif text-xl font-semibold text-charcoal">
-              Ringkasan Koleksi & Kurasi
+            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mutedBrown block">
+              Ringkasan Manajemen Konten
+            </span>
+            <h2 id="ringkasan-konten-heading" className="font-serif text-xl font-bold text-charcoal">
+              Inventaris Kuratorial &amp; Arsip
             </h2>
-            <p className="text-xs text-mutedBrown">
-              Seluruh kategori arsip budaya yang dikelola tim kurator dan mahasiswa peneliti
-            </p>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-mutedBrown">
-            <span>
-              Publikasi:{' '}
-              <strong className="text-charcoal font-medium">
-                {canPublish ? 'Diizinkan' : 'Hanya Draf'}
-              </strong>
-            </span>
-            <span>
-              Hapus Permanen:{' '}
-              <strong className="text-charcoal font-medium">
-                {canDelete ? 'Super Admin' : 'Dibatasi'}
-              </strong>
-            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {contentSections.map((item) => {
-            const Icon = item.icon;
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          {contentSections.map((sec) => {
+            const Icon = sec.icon;
             return (
               <Link
-                key={item.label}
-                to={item.to}
-                className="group bg-surface border border-softLinen hover:border-naturalBeige rounded-[4px] p-4 sm:p-5 transition-colors flex flex-col justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                key={sec.label}
+                to={sec.to}
+                className="group bg-surface border border-softLinen hover:border-naturalBeige rounded-md p-4 transition-colors flex flex-col justify-between space-y-2.5"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-charcoal/85 group-hover:text-terracotta transition-colors">
-                    {item.label}
-                  </span>
-                  <Icon className="w-4 h-4 text-mutedBrown group-hover:text-terracotta transition-colors shrink-0" />
+                <div className="flex items-center justify-between text-mutedBrown">
+                  <Icon className="w-4 h-4 text-terracotta" />
+                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold text-charcoal tabular-nums">{item.value}</p>
-                  <p className="text-xs text-mutedBrown mt-0.5">{item.description}</p>
+                  <p className="font-serif text-2xl font-bold text-charcoal">{sec.count}</p>
+                  <p className="text-xs font-semibold text-charcoal mt-0.5">{sec.label}</p>
+                  <p className="text-[11px] text-muted mt-0.5">{sec.description}</p>
                 </div>
               </Link>
             );
@@ -578,61 +521,58 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       </section>
 
-      {/* G. CONTENT POPULARITY + F. COMPACT CURATORIAL ACTIVITY */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* G. CONTENT POPULARITY */}
-        <section
-          aria-labelledby="content-popularity-heading"
-          className="lg:col-span-6 bg-surface border border-softLinen rounded-[4px] p-5 sm:p-6 space-y-4"
-        >
+      {/* F & G. Popular Public Content + Compact Curatorial Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* G. Content Popularity */}
+        <section className="lg:col-span-5 bg-surface border border-softLinen rounded-md p-5 space-y-4">
           <div className="border-b border-softLinen/80 pb-3">
-            <h2 id="content-popularity-heading" className="font-serif text-lg font-semibold text-charcoal">
-              Popularitas Konten Publik
+            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mutedBrown block">
+              Daya Tarik Koleksi
+            </span>
+            <h2 className="font-serif text-lg font-bold text-charcoal">
+              Konten Publik Terpopuler
             </h2>
-            <p className="text-xs text-mutedBrown mt-0.5">
-              Halaman motif, kriya, dan tradisi dengan tayangan terbanyak dari pengunjung
-            </p>
           </div>
 
           {!analytics || analytics.popularContent.length === 0 ? (
-            <div className="py-7 text-center border border-dashed border-softLinen rounded-[3px] bg-sand-50/50 px-4">
-              <p className="text-xs font-medium text-charcoal">Belum ada data tayangan konten</p>
-              <p className="text-xs text-mutedBrown mt-1">
-                Daftar konten terpopuler akan terisi otomatis ketika pengunjung membuka katalog museum.
+            <div className="py-6 px-4 text-center bg-ivory/60 border border-dashed border-naturalBeige rounded text-xs text-muted space-y-1">
+              <p className="font-medium text-charcoal">
+                Belum ada kunjungan halaman detail konten
+              </p>
+              <p>
+                Saat pengunjung membuka detail motif, kriya, atau tradisi budaya, peringkat tayangan akan muncul di sini.
               </p>
             </div>
           ) : (
             <ul className="divide-y divide-softLinen/70">
-              {analytics.popularContent.slice(0, 6).map((item, idx) => (
-                <li key={item.pageKey} className="py-3 flex items-center justify-between gap-3">
+              {analytics.popularContent.map((item) => (
+                <li key={item.pageKey} className="py-2.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-mono text-mutedBrown w-5 shrink-0">
-                      {String(idx + 1).padStart(2, '0')}
-                    </span>
                     {item.thumbnailFileId ? (
                       <img
-                        src={getFilePreviewUrl(item.thumbnailFileId, { width: 88, height: 64 })}
-                        alt=""
-                        loading="lazy"
-                        className="w-11 h-9 object-cover rounded-[2px] border border-softLinen bg-aged shrink-0"
+                        src={getFilePreviewUrl(item.thumbnailFileId, { width: 96, height: 96 })}
+                        alt={item.titleHint}
+                        className="w-10 h-10 rounded-xs object-cover border border-softLinen shrink-0 bg-aged"
                       />
                     ) : (
-                      <div className="w-11 h-9 rounded-[2px] border border-softLinen bg-aged/60 flex items-center justify-center text-mutedBrown shrink-0">
+                      <div className="w-10 h-10 rounded-xs border border-softLinen bg-ivory flex items-center justify-center shrink-0 text-mutedBrown">
                         <BookOpen className="w-4 h-4" />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-charcoal truncate">{item.title}</p>
-                      <p className="text-xs text-mutedBrown truncate">
-                        {CONTENT_TYPE_LABELS[item.contentType] || 'Koleksi'} • {item.pageKey}
+                      <p className="text-xs font-semibold text-charcoal truncate">
+                        {item.titleHint}
                       </p>
+                      <span className="text-[11px] text-muted">
+                        {CONTENT_TYPE_LABELS[item.contentType] || item.contentType}
+                      </span>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold text-charcoal tabular-nums">
+                    <span className="font-serif text-base font-bold text-terracotta block leading-none">
                       {item.pageViews}
-                    </p>
-                    <p className="text-[11px] text-mutedBrown">tayangan</p>
+                    </span>
+                    <span className="text-[10px] text-muted">views</span>
                   </div>
                 </li>
               ))}
@@ -640,89 +580,82 @@ export const AdminDashboardPage: React.FC = () => {
           )}
         </section>
 
-        {/* F. COMPACT CURATORIAL ACTIVITY */}
-        <section
-          aria-labelledby="curatorial-activity-heading"
-          className="lg:col-span-6 bg-surface border border-softLinen rounded-[4px] p-5 sm:p-6 space-y-4"
-        >
-          <div className="flex items-start justify-between gap-3 border-b border-softLinen/80 pb-3">
+        {/* F. Compact Curatorial Activity + Role Matrix */}
+        <section className="lg:col-span-7 bg-surface border border-softLinen rounded-md p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-softLinen/80 pb-3">
             <div>
-              <h2 id="curatorial-activity-heading" className="font-serif text-lg font-semibold text-charcoal">
-                Aktivitas Kuratorial
-              </h2>
-              <p className="text-xs text-mutedBrown mt-0.5">
-                Rekam tindakan media server-side & aktivitas penyuntingan terbaru
-              </p>
-            </div>
-            {canPublish && (
-              <span className="text-xs text-mutedBrown tabular-nums shrink-0">
-                {recentLogs.length} rekaman
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mutedBrown block">
+                Jejak Administratif
               </span>
-            )}
+              <h2 className="font-serif text-lg font-bold text-charcoal">
+                Aktivitas Kurasi Terbaru
+              </h2>
+            </div>
+            <span className="text-[11px] text-muted">
+              Penerbitan: <strong className="text-charcoal">{canPublish ? 'Aktif' : 'Terbatas (Desa)'}</strong> •{' '}
+              Hapus Permanen: <strong className="text-charcoal">{canDelete ? 'Super Admin' : 'Dibatasi'}</strong>
+            </span>
           </div>
 
           {!canPublish ? (
-            <div className="py-6 px-4 border border-softLinen rounded-[3px] bg-aged/35 text-xs text-charcoal/80 space-y-1.5">
-              <p className="font-medium text-charcoal">Ringkasan Log Dibatasi</p>
-              <p className="text-mutedBrown leading-relaxed">
-                Sesuai kebijakan akses Appwrite, riwayat audit sistem hanya dapat ditinjau oleh Admin Desa dan Super Admin. Seluruh draf yang Anda simpan tetap tercatat dengan atribusi penulis Anda.
+            <div className="p-4 bg-ivory border border-softLinen rounded text-xs text-muted flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-indigoTextile shrink-0 mt-0.5" />
+              <p>
+                Akses log audit lengkap hanya tersedia untuk <strong>Admin Desa</strong> dan{' '}
+                <strong>Super Admin</strong>. Seluruh draf dan unggahan media Anda tersimpan dengan atribusi permanen.
               </p>
             </div>
           ) : recentLogs.length === 0 ? (
-            <div className="py-7 text-center border border-dashed border-softLinen rounded-[3px] bg-sand-50/50 px-4">
-              <p className="text-xs font-medium text-charcoal">Belum ada aktivitas kurasi terbaru</p>
-              <p className="text-xs text-mutedBrown mt-1">
-                Perubahan konten atau unggahan media melalui gateway akan tercatat di sini.
-              </p>
+            <div className="py-5 px-4 text-center bg-ivory/60 border border-dashed border-naturalBeige rounded text-xs text-muted">
+              Belum ada aktivitas kurasi atau mutasi media tercatat pada log audit.
             </div>
           ) : (
-            <div className="space-y-2.5">
-              <ul className="divide-y divide-softLinen/70 text-xs">
+            <div className="space-y-2">
+              <div className="divide-y divide-softLinen/70">
                 {recentLogs.map((log) => {
-                  const authoritative = isServerGatewayAudit(log);
+                  const serverAuth = isGatewayAuthoritativeLog(log);
                   return (
-                    <li key={log.$id} className="py-2.5 flex items-center justify-between gap-3">
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="font-semibold text-charcoal uppercase text-[11px]">
-                            {log.action}
-                          </span>
-                          <span className="text-charcoal/80 truncate">
-                            {log.entityType} ({log.entityId})
-                          </span>
-                          {authoritative ? (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[2px] bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
-                              title="Dicatat langsung oleh Server Gateway terotorisasi"
-                            >
-                              <ShieldCheck className="w-3 h-3" /> Server
-                            </span>
-                          ) : (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[2px] bg-aged text-mutedBrown border border-softLinen text-[10px] font-medium"
-                              title="Catatan aktivitas klien (non-otoritatif)"
-                            >
-                              Klien
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-mutedBrown truncate">
-                          Aktor: {log.actorUserId}
-                        </p>
+                    <div
+                      key={log.$id}
+                      className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge
+                          variant={
+                            log.action === 'delete'
+                              ? 'warning'
+                              : log.action === 'publish'
+                              ? 'success'
+                              : 'neutral'
+                          }
+                          size="sm"
+                        >
+                          {log.action}
+                        </Badge>
+                        <span className="font-medium text-charcoal truncate">
+                          {log.entityType} • <code className="font-mono text-[11px] text-muted">{log.entityId}</code>
+                        </span>
                       </div>
-                      <span className="text-[11px] text-mutedBrown shrink-0 tabular-nums">
-                        {formatRelativeTime(log.$createdAt)}
-                      </span>
-                    </li>
+                      <div className="flex items-center gap-2.5 shrink-0 text-[11px]">
+                        <span
+                          className={`px-1.5 py-0.5 rounded-xs border font-medium ${
+                            serverAuth
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                              : 'bg-ivory border-softLinen text-muted'
+                          }`}
+                        >
+                          {serverAuth ? 'Server Gateway' : 'Catatan Klien'}
+                        </span>
+                        <span className="text-muted">
+                          {log.$createdAt ? new Date(log.$createdAt).toLocaleString('id-ID') : '—'}
+                        </span>
+                      </div>
+                    </div>
                   );
                 })}
-              </ul>
-              <p className="text-[11px] text-mutedBrown pt-2 border-t border-softLinen/60 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                <span>
-                  Label <strong>Server</strong> menandakan log otoritatif media gateway; label{' '}
-                  <strong>Klien</strong> menandakan catatan aktivitas non-media.
-                </span>
+              </div>
+              <p className="text-[11px] text-muted pt-1">
+                Catatan: Entri bertanda <em>Server Gateway</em> diverifikasi langsung di backend media, sedangkan log CRUD teks berasal dari klien.
               </p>
             </div>
           )}

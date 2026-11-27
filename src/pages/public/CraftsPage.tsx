@@ -8,9 +8,16 @@ import { CraftCard } from '../../components/public/CraftCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const CraftsPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Katalog Kerajinan & Tenun — Museum Digital Pringgasela Selatan',
+      'Crafts & Traditional Weaving — South Pringgasela Digital Museum'
+    )
+  );
   const [searchParams] = useSearchParams();
   const [crafts, setCrafts] = useState<Craft[]>([]);
   const [selectedType, setSelectedType] = useState<string>(() => searchParams.get('craftType') || 'all');
@@ -32,11 +39,6 @@ export const CraftsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    setSelectedType(searchParams.get('craftType') || 'all');
-    setSearchQuery(searchParams.get('q') || '');
-  }, [searchParams]);
-
-  useEffect(() => {
     fetchCrafts();
   }, []);
 
@@ -56,9 +58,7 @@ export const CraftsPage: React.FC = () => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
 
-      const trans =
-        craft.translations?.find((tr) => tr.locale === locale) ||
-        craft.translations?.[0];
+      const trans = pickTranslation(craft.translations, locale);
 
       const titleMatch = trans?.title?.toLowerCase().includes(q) || false;
       const sumMatch = trans?.summary?.toLowerCase().includes(q) || false;

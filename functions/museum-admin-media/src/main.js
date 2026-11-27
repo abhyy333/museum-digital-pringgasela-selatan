@@ -228,176 +228,166 @@ export default async ({ req, res, log, error }) => {
 
   try {
     // ------------------------------------------------------------------------
-    // 0. ADMIN VISITOR ANALYTICS SUMMARY (Authenticated Curators Only)
-    // GET /analytics/summary?range=7|30
+    // 0. ADMIN VISITOR ANALYTICS SUMMARY (All verified museum-admins roles)
+    // GET /analytics/summary?days=30
     // ------------------------------------------------------------------------
     if (cleanPath === '/analytics/summary' && method === 'GET') {
       const rl = rateLimiter.consume(`analytics:${user.$id}`, 60, 60_000);
       if (!rl.allowed) {
         return res.json(
-          { error: 'Terlalu banyak permintaan analitik.' },
+          { error: 'Terlalu banyak permintaan pembaruan analitik.' },
           429,
           { ...CORS_HEADERS, 'Retry-After': String(rl.retryAfterSec) }
         );
       }
 
-      const requestedRange = Number.parseInt(String(req.query?.range || '30'), 10);
-      const daysCount = requestedRange === 7 ? 7 : 30;
+      const rawDays = Number.parseInt(String(req.query?.days || '30'), 10);
+      const daysWindow = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 7), 30) : 30;
       const nowMs = Date.now();
-      const activeCutoffMs = nowMs - 120_000; // Active if heartbeat within 2 minutes
+      const activeCutoffIso = new Date(nowMs - 2 * 60 * 1000).toISOString();
+      const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date(nowMs));
 
-      const toWitaDateKey = (ms) => new Date(ms + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const todayKey = toWitaDateKey(nowMs);
+      const [
+        activeSessionsRes,
+        recentSessionsRes,
+        dailyStatsRes,
+        pageStatsRes,
+        pubMotifsRes,
+        pubCraftsRes,
+        pubCulturesRes,
+        pubHistoryRes,
+      ] = await Promise.all([
+        tablesDB.listRows(DB_ID, 'visitor_sessions', [
+          Query.greaterThanEqual('lastSeenAt', activeCutoffIso),
+          Query.orderDesc('lastSeenAt'),
+          Query.limit(100),
+        ]),
+        tablesDB.listRows(DB_ID, 'visitor_sessions', [
+          Query.orderDesc('lastSeenAt'),
+          Query.limit(12),
+        ]),
+        tablesDB.listRows(DB_ID, 'visitor_daily_stats', [
+          Query.orderDesc('dateKey'),
+          Query.limit(90),
+        ]),
+        tablesDB.listRows(DB_ID, 'visitor_page_stats', [
+          Query.orderDesc('pageViews'),
+          Query.limit(25),
+        ]),
+        tablesDB.listRows(DB_ID, 'weaving_motifs', [Query.equal('status', 'published'), Query.limit(1)]),
+        tablesDB.listRows(DB_ID, 'crafts', [Query.equal('status', 'published'), Query.limit(1)]),
+        tablesDB.listRows(DB_ID, 'cultures', [Query.equal('status', 'published'), Query.limit(1)]),
+        tablesDB.listRows(DB_ID, 'village_history', [Query.equal('status', 'published'), Query.limit(1)]),
+      ]);
 
-      const [sessionsRes, dailyRes, pageStatsRes, motifsPub, craftsPub, culturesPub, historyPub] =
-        await Promise.all([
-          tablesDB.listRows(DB_ID, 'visitor_sessions', [Query.orderDesc('lastSeenAt'), Query.limit(100)]),
-          tablesDB.listRows(DB_ID, 'visitor_daily_stats', [Query.orderDesc('dateKey'), Query.limit(90)]),
-          tablesDB.listRows(DB_ID, 'visitor_page_stats', [Query.orderDesc('pageViews'), Query.limit(12)]),
-          tablesDB.listRows(DB_ID, 'weaving_motifs', [Query.equal('status', 'published'), Query.limit(1)]),
-          tablesDB.listRows(DB_ID, 'crafts', [Query.equal('status', 'published'), Query.limit(1)]),
-          tablesDB.listRows(DB_ID, 'cultures', [Query.equal('status', 'published'), Query.limit(1)]),
-          tablesDB.listRows(DB_ID, 'village_history', [Query.equal('status', 'published'), Query.limit(1)]),
-        ]);
-
-      const sessions = sessionsRes.rows || [];
-      let activeVisitors = 0;
-      const deviceBreakdown = { desktop: 0, tablet: 0, mobile: 0 };
-      const recentActivity = [];
-
-      for (const s of sessions) {
-        const lastMs = Date.parse(s.lastSeenAt || '');
-        const isActive = Number.isFinite(lastMs) && lastMs >= activeCutoffMs;
-        if (isActive) activeVisitors += 1;
-        if (s.startedDate === todayKey) {
-          const dCat = s.deviceCategory === 'mobile' ? 'mobile' : s.deviceCategory === 'tablet' ? 'tablet' : 'desktop';
-          deviceBreakdown[dCat] += 1;
-        }
-        if (recentActivity.length < 8) {
-          recentActivity.push({
-            path: s.currentPath,
-            titleHint: s.pageTitle || s.currentPath,
-            deviceCategory: s.deviceCategory || 'desktop',
-            referrerCategory: s.referrerCategory || 'direct',
-            lastSeenAt: s.lastSeenAt,
-            pageViewsCount: s.pageViewsCount || 1,
-            isActive,
-          });
-        }
-      }
-
-      const dailyRows = dailyRes.rows || [];
-      const dailyByKey = new Map();
+      const dailyMap = new Map();
       let totalPageViews = 0;
-      for (const row of dailyRows) {
-        totalPageViews += row.pageViews || 0;
-        dailyByKey.set(row.dateKey, row);
+      for (const row of dailyStatsRes.rows || []) {
+        dailyMap.set(row.dateKey, row);
+        totalPageViews += Number(row.pageViews || 0);
       }
 
-      const todayRow = dailyByKey.get(todayKey);
-      const uniqueVisitorsToday = todayRow?.uniqueVisitors || 0;
-      const pageViewsToday = todayRow?.pageViews || 0;
-
-      const trends = [];
-      for (let i = daysCount - 1; i >= 0; i--) {
-        const dayKey = toWitaDateKey(nowMs - i * 86_400_000);
-        const match = dailyByKey.get(dayKey);
-        const [y, m, d] = dayKey.split('-');
-        trends.push({
-          dateKey: dayKey,
-          label: `${d}/${m}`,
-          uniqueVisitors: match?.uniqueVisitors || 0,
-          pageViews: match?.pageViews || 0,
-          mobileViews: match?.mobileViews || 0,
-          desktopViews: match?.desktopViews || 0,
+      const dailySeries = [];
+      for (let i = daysWindow - 1; i >= 0; i -= 1) {
+        const d = new Date(nowMs - i * 24 * 60 * 60 * 1000);
+        const key = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(d);
+        const row = dailyMap.get(key);
+        dailySeries.push({
+          dateKey: key,
+          uniqueVisitors: Number(row?.uniqueVisitors || 0),
+          pageViews: Number(row?.pageViews || 0),
+          mobileViews: Number(row?.mobileViews || 0),
+          desktopViews: Number(row?.desktopViews || 0),
         });
       }
 
-      const popularContent = [];
-      for (const p of (pageStatsRes.rows || []).slice(0, 8)) {
-        let resolvedTitle = p.titleHint || p.pageKey;
-        let thumbnailFileId = null;
+      const todayRow = dailyMap.get(todayKey);
+      const publishedContentCount =
+        Number(pubMotifsRes.total || 0) +
+        Number(pubCraftsRes.total || 0) +
+        Number(pubCulturesRes.total || 0) +
+        Number(pubHistoryRes.total || 0);
 
-        if (p.slug && (p.contentType === 'motif' || p.contentType === 'craft' || p.contentType === 'culture')) {
+      // Strip any PII (no sessionId, no IP, no user identifiers)
+      const recentActivity = (recentSessionsRes.rows || []).map((s) => ({
+        path: s.currentPath,
+        pageTitle: s.pageTitle || s.currentPath,
+        deviceCategory: s.deviceCategory || 'desktop',
+        referrerCategory: s.referrerCategory || 'direct',
+        lastSeenAt: s.lastSeenAt,
+        isActive: Date.parse(s.lastSeenAt || '') >= nowMs - 2 * 60 * 1000,
+      }));
+
+      const topPages = (pageStatsRes.rows || []).map((p) => ({
+        pageKey: p.pageKey,
+        contentType: p.contentType,
+        slug: p.slug || null,
+        titleHint: p.titleHint || p.pageKey,
+        pageViews: Number(p.pageViews || 0),
+        lastViewedAt: p.lastViewedAt,
+      }));
+
+      const rawPopular = topPages.filter((p) => Boolean(p.slug)).slice(0, 6);
+      const popularContent = await Promise.all(
+        rawPopular.map(async (item) => {
+          let thumbnailFileId = null;
           try {
-            const tableName =
-              p.contentType === 'motif' ? 'weaving_motifs' : p.contentType === 'craft' ? 'crafts' : 'cultures';
-            const transTable =
-              p.contentType === 'motif'
-                ? 'motif_translations'
-                : p.contentType === 'craft'
-                ? 'craft_translations'
-                : 'culture_translations';
-            const fkName = p.contentType === 'motif' ? 'motifId' : p.contentType === 'craft' ? 'craftId' : 'cultureId';
-            const mediaTable =
-              p.contentType === 'motif' ? 'motif_media' : p.contentType === 'craft' ? 'craft_media' : 'culture_media';
-
-            const entityRes = await tablesDB.listRows(DB_ID, tableName, [
-              Query.equal('slug', p.slug),
-              Query.equal('status', 'published'),
-              Query.limit(1),
-            ]);
-            const ent = entityRes.rows?.[0];
-            if (ent) {
-              const [trRes, relRes] = await Promise.all([
-                tablesDB.listRows(DB_ID, transTable, [Query.equal(fkName, ent.$id), Query.limit(4)]),
-                tablesDB.listRows(DB_ID, mediaTable, [Query.equal(fkName, ent.$id), Query.orderAsc('sortOrder'), Query.limit(4)]),
+            const cfg =
+              item.contentType === 'motif'
+                ? { tbl: 'weaving_motifs', med: 'motif_media', fk: 'motifId' }
+                : item.contentType === 'craft'
+                ? { tbl: 'crafts', med: 'craft_media', fk: 'craftId' }
+                : item.contentType === 'culture'
+                ? { tbl: 'cultures', med: 'culture_media', fk: 'cultureId' }
+                : null;
+            if (cfg && item.slug) {
+              const rowRes = await tablesDB.listRows(DB_ID, cfg.tbl, [
+                Query.equal('slug', item.slug),
+                Query.equal('status', 'published'),
+                Query.limit(1),
               ]);
-              const trId = (trRes.rows || []).find((t) => t.locale === 'id') || trRes.rows?.[0];
-              if (trId) {
-                resolvedTitle = trId.name || trId.title || resolvedTitle;
-              }
-              const firstRel = relRes.rows?.[0];
-              if (firstRel) {
-                const asset = await tablesDB.getRow(DB_ID, 'media_assets', firstRel.mediaAssetId).catch(() => null);
-                const fid = asset?.fileId || firstRel.mediaAssetId;
-                if (fid && asset?.mediaType === 'image') {
-                  const fMeta = await storage.getFile(BUCKET_ID, fid).catch(() => null);
-                  const isPubFile = Array.isArray(fMeta?.$permissions) && fMeta.$permissions.some((x) => String(x).trim() === 'read("any")');
-                  if (isPubFile) thumbnailFileId = fid;
+              const entityId = rowRes.rows?.[0]?.$id;
+              if (entityId) {
+                const medRes = await tablesDB.listRows(DB_ID, cfg.med, [
+                  Query.equal(cfg.fk, entityId),
+                  Query.orderAsc('sortOrder'),
+                  Query.limit(1),
+                ]);
+                const assetId = medRes.rows?.[0]?.mediaAssetId;
+                if (assetId) {
+                  const fileMeta = await storage.getFile(BUCKET_ID, assetId);
+                  const isPub =
+                    Array.isArray(fileMeta.$permissions) &&
+                    fileMeta.$permissions.some((p) => typeof p === 'string' && p.trim() === 'read("any")') &&
+                    !getQuarantineReason({
+                      mimeType: fileMeta.mimeType,
+                      fileSizeBytes: fileMeta.sizeOriginal,
+                      chunksUploaded: fileMeta.chunksUploaded,
+                      chunksTotal: fileMeta.chunksTotal,
+                    });
+                  if (isPub && String(fileMeta.mimeType || '').startsWith('image/')) {
+                    thumbnailFileId = fileMeta.$id;
+                  }
                 }
               }
             }
-          } catch {
-            // Keep safe fallback titleHint without leaking private info
-          }
-        }
-
-        popularContent.push({
-          pageKey: p.pageKey,
-          contentType: p.contentType,
-          slug: p.slug || null,
-          title: resolvedTitle,
-          pageViews: p.pageViews || 0,
-          lastViewedAt: p.lastViewedAt,
-          thumbnailFileId,
-        });
-      }
-
-      const publishedCounts = {
-        motifs: motifsPub.total || 0,
-        crafts: craftsPub.total || 0,
-        cultures: culturesPub.total || 0,
-        history: historyPub.total || 0,
-        total:
-          (motifsPub.total || 0) +
-          (craftsPub.total || 0) +
-          (culturesPub.total || 0) +
-          (historyPub.total || 0),
-      };
+          } catch {}
+          return { ...item, thumbnailFileId };
+        })
+      );
 
       return res.json(
         {
-          activeVisitors,
-          uniqueVisitorsToday,
-          pageViewsToday,
+          generatedAt: new Date(nowMs).toISOString(),
+          activeVisitors: Number(activeSessionsRes.total || activeSessionsRes.rows?.length || 0),
+          todayUniqueVisitors: Number(todayRow?.uniqueVisitors || 0),
+          todayPageViews: Number(todayRow?.pageViews || 0),
           totalPageViews,
-          publishedCounts,
-          deviceBreakdown,
-          trends,
-          recentActivity,
+          publishedContentCount,
+          dailySeries,
+          topPages: topPages.slice(0, 6),
           popularContent,
-          lastUpdatedAt: new Date(nowMs).toISOString(),
+          recentActivity,
         },
         200,
         CORS_HEADERS

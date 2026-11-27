@@ -20,6 +20,7 @@ export default defineConfig({
     allowedHosts: true,
   },
   build: {
+    sourcemap: false,
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {

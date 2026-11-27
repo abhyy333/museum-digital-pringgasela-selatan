@@ -39,20 +39,19 @@ Desa Pringgasela Selatan merupakan salah satu episentrum tertua tradisi tenun ge
 - **Profil Museum & Geografis (`/about`):** Visi-misi, koordinat desa, dan tata kelola adat.
 
 ### 2. Panel Admin CMS Terkelola
-- **Keamanan Berbasis Peran (RBAC):** Super Admin (`owner`), Admin Desa (`desa`), dan Admin KKN (`kkn`) diverifikasi langsung dari keanggotaan Appwrite Team `museum-admins`.
-- **Alur Kerja Kurasi Ketat:** Entri data lapangan disimpan sebagai `draft` sebelum diverifikasi dan diterbitkan menjadi `published`.
-- **Media Gateway Berotoritas Server (`museum-admin-media v4.0.0`):** Unggahan dipecah menjadi potongan maks `5 MiB` (kapasitas total `50.000.000` bytes) dengan token sesi HMAC-SHA256, pemeriksaan magic bytes & parser struktural SVG/ZIP/PDF, checksum SHA-256/MD5, **Private-by-Default**, serta karantina keras untuk berkas `> 20 MB`, `.svg`, dan `.zip`.
-- **Rekonsiliasi Integritas:** Admin Desa dan Super Admin dapat memeriksa konsistensi Storage, `media_assets`, dan berkas karantina melalui endpoint `GET /media/reconcile`.
+- **Keamanan Berbasis Peran (RBAC):** Super Admin (Kepala Desa), Admin Desa (Aparatur/Kurator), dan Admin KKN (Mahasiswa Pengabdi).
+- **Alur Kerja Kurasi Ketat:** Entri data lapangan disimpan sebagai `draft` sebelum diverifikasi menjadi `reviewed` dan disahkan menjadi `published`.
+- **Pengunggah Media Terpusat:** Pengunggahan foto/dokumen berkapasitas hingga 50 MB dengan validasi tipe berkas dan pemantauan bilah progres ke Appwrite Storage.
 - **Protokol Transisi KKN:** Pedoman serah terima digital antar-periode mahasiswa KKN demi menjamin integritas data berkelanjutan.
 
 ---
 
 ## 🔒 Arsitektur Keamanan Bebas-Rahasia (*Zero-Secret Architecture*)
 
-Frontend tidak pernah menyimpan atau memuat *Server API Key*, `UPLOAD_SESSION_SECRET`, maupun kredensial rahasia apa pun:
+Frontend tidak pernah menyimpan atau memuat *Server API Key* atau kredensial rahasia apa pun:
 - Pengunjung umum membaca data terbitan melalui **Appwrite Function** terisolasi (`museum-public-api v1.3.0`).
-- Administrator masuk menggunakan sesi akun Appwrite resmi (`account.createEmailPasswordSession`) tanpa kredensial tertanam di antarmuka login.
-- Bucket `museum-media` memiliki izin tingkat bucket kosong (`[]`) dengan `fileSecurity: true`; seluruh unggahan, publikasi, penarikan ke privat, dan penghapusan permanen wajib melewati Server Gateway `museum-admin-media v4.0.0`.
+- Administrator masuk menggunakan sesi akun Appwrite resmi (`account.createEmailPasswordSession`) dengan otorisasi berbasis tim (`museum-admins`).
+- Seluruh unggahan, publikasi, pencabutan akses, dan penghapusan media berjalan secara server-authoritative melalui **`museum-admin-media v4.0.0`** (sesi chunk HMAC-SHA256, karantina file `> 20 MB`/SVG/ZIP, `fileSecurity: true` tanpa izin mutasi langsung klien di bucket `museum-media`).
 
 ---
 
@@ -61,16 +60,16 @@ Frontend tidak pernah menyimpan atau memuat *Server API Key*, `UPLOAD_SESSION_SE
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React, React Router v6.
 - **Backend:** Appwrite Cloud (Wilayah: Singapore / `sgp`).
   - **TablesDB:** Database `museum_digital` (17 Tabel Terverifikasi).
-  - **Storage:** Bucket `museum-media` (Keamanan berkas aktif, kapasitas maks 50 MB/file, antivirus aktif hingga 20 MB).
+  - **Storage:** Bucket `museum-media` (Keamanan berkas aktif, kapasitas maks 50 MB/file).
   - **Authentication & Teams:** Appwrite Auth & Team RBAC (`museum-admins`).
-  - **Functions:** Node.js 22 Function Gateways (`museum-public-api v1.3.0` dan `museum-admin-media v4.0.0`).
+  - **Functions:** Node.js 22 Function Gateways (`museum-public-api` & `museum-admin-media`).
 
 ---
 
 ## 🚀 Memulai Proyek (*Getting Started*)
 
 ### Prasyarat
-- Node.js versi 18 ke atas (disarankan Node.js v20+)
+- Node.js versi 20+ (runtime backend memakai Node.js 22)
 - npm / pnpm / yarn
 
 ### Instalasi & Menjalankan Mode Pengembangan
@@ -79,23 +78,19 @@ Frontend tidak pernah menyimpan atau memuat *Server API Key*, `UPLOAD_SESSION_SE
 git clone https://github.com/abhyy333/museum-digital-pringgasela-selatan.git
 cd museum-digital-pringgasela-selatan
 
-# 2. Instalasi dependensi
-npm install
+# 2. Salin templat variabel lingkungan publik (tanpa secret)
+cp .env.example .env
 
-# 3. Salin template konfigurasi publik (hanya variabel VITE_ non-rahasia)
-cp .env.example .env.local
+# 3. Instalasi dependensi
+npm install
 
 # 4. Jalankan server pengembangan
 npm run dev
 ```
 
-### Deployment Vercel Preview & Web Platforms Appwrite
-- Gunakan variabel environment berawalan `VITE_*` sesuai [`.env.example`](./.env.example). Jangan pernah menyertakan `APPWRITE_API_KEY` atau `UPLOAD_SESSION_SECRET` pada environment Vercel frontend.
-- Pastikan hostname deployment terdaftar sebagai **Web Platform** di Appwrite Project (`6affdaa0003c416ecdb0`): `localhost` dan wildcard `*.vercel.app` (`vercel_wildcard_preview`) sudah terdaftar; tambahkan domain kustom produksi (`museum.pringgasela.desa.id`) saat siap rilis.
-
 ### Membangun Bundel Produksi & Pratinjau
 ```bash
-# Bangun bundel teroptimasi
+# Typecheck + bangun bundel teroptimasi (sourcemap dinonaktifkan)
 npm run build
 
 # Jalankan server pratinjau lokal
@@ -106,16 +101,16 @@ npm run preview
 
 ## 📚 Dokumentasi Teknis
 
-Dokumentasi arsitektur dan pedoman sistem tersedia lengkap pada direktori proyek:
-- [`FRONTEND_ARCHITECTURE.md`](./FRONTEND_ARCHITECTURE.md) — Arsitektur sistem frontend, modularitas, dan diagram aliran data.
-- [`UI_DESIGN_SYSTEM.md`](./UI_DESIGN_SYSTEM.md) — Filosofi estetika museum kontemporer, palet warna tanah lereng Rinjani, dan token desain.
-- [`API_INTEGRATION.md`](./API_INTEGRATION.md) — Spesifikasi integrasi Public Content API Gateway dan Admin SDK.
+Dokumentasi arsitektur, pengujian, audit kesiapan, dan pedoman operasional tersedia lengkap pada direktori proyek:
+- [`PHASE_6_FRONTEND_INTEGRATION_REPORT.md`](./PHASE_6_FRONTEND_INTEGRATION_REPORT.md) — Audit integrasi frontend, auth, media gateway, dan status fitur Phase 6.
+- [`PHASE_6_CONTROLLED_PILOT_TEST.md`](./PHASE_6_CONTROLLED_PILOT_TEST.md) — Hasil uji lokal, API publik, dan 6/6 E2E Chrome Controlled Pilot.
+- [`PHASE_6_DEPLOYMENT_READINESS.md`](./PHASE_6_DEPLOYMENT_READINESS.md) — Status Vercel Preview, environment, SEO SPA, blocker, dan rekomendasi Go/No-Go.
+- [`PHASE_5_4_COMPLETE_REPORT.md`](./PHASE_5_4_COMPLETE_REPORT.md) — Laporan lengkap audit kesiapan produksi & hardening backend Phase 5.4.
+- [`PHASE_5_2_UPLOAD_SECURITY_ARCHITECTURE.md`](./PHASE_5_2_UPLOAD_SECURITY_ARCHITECTURE.md) — Arsitektur keamanan unggahan media gateway.
+- [`FRONTEND_ARCHITECTURE.md`](./FRONTEND_ARCHITECTURE.md) — Arsitektur sistem frontend dan aliran data.
+- [`UI_DESIGN_SYSTEM.md`](./UI_DESIGN_SYSTEM.md) — Filosofi estetika museum kontemporer dan token desain.
+- [`API_INTEGRATION.md`](./API_INTEGRATION.md) — Spesifikasi integrasi Public Content API Gateway.
 - [`ADMIN_USER_GUIDE.md`](./ADMIN_USER_GUIDE.md) — Pedoman operasional kurasi untuk perangkat desa dan mahasiswa KKN.
-- [`FRONTEND_TEST_REPORT.md`](./FRONTEND_TEST_REPORT.md) — Laporan pengujian 18 kasus uji mutu, keamanan, dan kinerja (100% PASS).
-- [`PHASE_4_IMPLEMENTATION_REPORT.md`](./PHASE_4_IMPLEMENTATION_REPORT.md) — Laporan komprehensif implementasi Tahap 4.
-- [`PHASE_5_4_COMPLETE_REPORT.md`](./PHASE_5_4_COMPLETE_REPORT.md) — Laporan audit kesiapan produksi & hardening server gateway Phase 5.4.
-- [`PHASE_6_COMPLETE_REPORT.md`](./PHASE_6_COMPLETE_REPORT.md) — Laporan lengkap integrasi frontend, pengujian controlled pilot, kesiapan deployment, & evaluasi Go/No-Go Phase 6.
-- [`PHASE_6_1_COMPLETE_REPORT.md`](./PHASE_6_1_COMPLETE_REPORT.md) — Laporan lengkap redesign Editorial Control Room dashboard, sidebar RBAC, & analitik pengunjung realtime Phase 6.1.
 
 ---
 

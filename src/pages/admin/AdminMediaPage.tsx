@@ -51,6 +51,20 @@ export const AdminMediaPage: React.FC = () => {
   const [reconcileReport, setReconcileReport] = useState<GatewayReconcileReport | null>(null);
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const handleRunReconcile = async () => {
+    if (!canPublish) return;
+    try {
+      setReconciling(true);
+      setAlertMsg(null);
+      const report = await reconcileMediaViaGateway();
+      setReconcileReport(report);
+    } catch (err: any) {
+      setAlertMsg({ type: 'error', text: formatAppwriteError(err, refreshAuth) });
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   const fetchMedia = async () => {
     try {
       setLoading(true);
@@ -170,20 +184,6 @@ export const AdminMediaPage: React.FC = () => {
     }
   };
 
-  const handleRunReconcile = async () => {
-    if (!canPublish) return;
-    try {
-      setReconciling(true);
-      setAlertMsg(null);
-      const report = await reconcileMediaViaGateway();
-      setReconcileReport(report);
-    } catch (err: any) {
-      setAlertMsg({ type: 'error', text: formatAppwriteError(err, refreshAuth) });
-    } finally {
-      setReconciling(false);
-    }
-  };
-
   const publicCount = assets.filter((a) => accessMap.get(a.fileId)?.isPublic).length;
   const privateCount = assets.filter((a) => {
     const info = accessMap.get(a.fileId);
@@ -225,7 +225,7 @@ export const AdminMediaPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-border bg-surface hover:bg-sand-50 text-text text-xs font-semibold transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
-              <span>{reconciling ? 'Memeriksa...' : 'Cek Rekonsiliasi'}</span>
+              <span>{reconciling ? 'Memeriksa...' : 'Audit Rekonsiliasi'}</span>
             </button>
           )}
           <button
@@ -239,55 +239,43 @@ export const AdminMediaPage: React.FC = () => {
       </div>
 
       {reconcileReport && (
-        <div className="bg-surface p-4 rounded-2xl border border-border text-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-serif font-bold text-text">
-              Ringkasan Rekonsiliasi Server Gateway
+        <div className="bg-surface rounded-2xl border border-border p-4 text-xs space-y-2 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-serif font-bold text-sm text-text">
+              Ringkasan Rekonsiliasi Server (Storage ↔ TablesDB)
             </span>
             <button
               type="button"
               onClick={() => setReconcileReport(null)}
-              className="text-[11px] text-muted hover:text-text"
+              className="text-muted hover:text-text font-semibold"
             >
               Tutup
             </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
-              <span className="text-[10px] text-muted block">File Storage</span>
-              <strong className="font-mono text-sm text-text">
-                {reconcileReport.summary.totalStorageFiles}
-              </strong>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+            <div className="bg-sand-50 rounded-xl p-2.5 border border-border/60">
+              <div className="text-[10px] text-muted uppercase">Storage</div>
+              <div className="font-bold text-sm">{reconcileReport.summary.totalStorageFiles}</div>
             </div>
-            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
-              <span className="text-[10px] text-muted block">Baris Metadata</span>
-              <strong className="font-mono text-sm text-text">
-                {reconcileReport.summary.totalMediaAssets}
-              </strong>
+            <div className="bg-sand-50 rounded-xl p-2.5 border border-border/60">
+              <div className="text-[10px] text-muted uppercase">Media Assets</div>
+              <div className="font-bold text-sm">{reconcileReport.summary.totalMediaAssets}</div>
             </div>
-            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
-              <span className="text-[10px] text-muted block">Tanpa Metadata</span>
-              <strong className="font-mono text-sm text-amber-800">
-                {reconcileReport.summary.storageWithoutMetadataCount}
-              </strong>
+            <div className="bg-sand-50 rounded-xl p-2.5 border border-border/60">
+              <div className="text-[10px] text-muted uppercase">Orphan Storage</div>
+              <div className="font-bold text-sm">{reconcileReport.summary.storageWithoutMetadataCount}</div>
             </div>
-            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
-              <span className="text-[10px] text-muted block">File Hilang</span>
-              <strong className="font-mono text-sm text-rose-700">
-                {reconcileReport.summary.metadataWithoutStorageCount}
-              </strong>
+            <div className="bg-sand-50 rounded-xl p-2.5 border border-border/60">
+              <div className="text-[10px] text-muted uppercase">Hilang di Storage</div>
+              <div className="font-bold text-sm">{reconcileReport.summary.metadataWithoutStorageCount}</div>
             </div>
-            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
-              <span className="text-[10px] text-muted block">Chunk Tak Selesai</span>
-              <strong className="font-mono text-sm text-rose-700">
-                {reconcileReport.summary.incompleteUploadsCount}
-              </strong>
+            <div className="bg-sand-50 rounded-xl p-2.5 border border-border/60">
+              <div className="text-[10px] text-muted uppercase">Chunk Tertunda</div>
+              <div className="font-bold text-sm">{reconcileReport.summary.incompleteUploadsCount}</div>
             </div>
-            <div className="bg-sand-50 p-2.5 rounded-lg border border-border/60">
-              <span className="text-[10px] text-muted block">File Karantina</span>
-              <strong className="font-mono text-sm text-text">
-                {reconcileReport.summary.quarantinedFilesCount}
-              </strong>
+            <div className="bg-sand-50 rounded-xl p-2.5 border border-border/60">
+              <div className="text-[10px] text-muted uppercase">Karantina</div>
+              <div className="font-bold text-sm">{reconcileReport.summary.quarantinedFilesCount}</div>
             </div>
           </div>
         </div>
@@ -441,6 +429,18 @@ export const AdminMediaPage: React.FC = () => {
                     <p className="text-[11px] text-muted">
                       {formatBytes(asset.fileSizeBytes)} • {asset.photographer || 'Staf'}
                     </p>
+                    {isQuarantined && !isPublic && (
+                      <p className="text-[10px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                        Alasan Karantina:{' '}
+                        {access?.quarantineReason === 'over-20mb-unscanned-private-quarantine' || asset.fileSizeBytes > 20_000_000
+                          ? '> 20 MB tidak dipindai antivirus otomatis'
+                          : ext === 'svg' || asset.mimeType === 'image/svg+xml'
+                          ? 'SVG aktif dikarantina privat'
+                          : ext === 'zip' || asset.mimeType.includes('zip')
+                          ? 'Arsip ZIP dikarantina privat'
+                          : access?.quarantineReason || 'Belum lolos syarat publikasi'}
+                      </p>
+                    )}
                   </div>
 
                   {canPublish && existsInStorage && (

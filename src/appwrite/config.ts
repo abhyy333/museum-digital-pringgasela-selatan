@@ -1,4 +1,4 @@
-const env = import.meta.env;
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : ({} as Record<string, string>);
 
 export const APPWRITE_CONFIG = {
   endpoint: env.VITE_APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1',
@@ -11,4 +11,5 @@ export const APPWRITE_CONFIG = {
   adminMediaGatewayUrl:
     env.VITE_APPWRITE_ADMIN_MEDIA_GATEWAY_URL ||
     'https://museum-admin-media-pringgasela.appwrite.network',
+  siteUrl: env.VITE_SITE_URL || 'https://museum.pringgasela.desa.id',
 };

@@ -58,7 +58,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
   const [consentChecked, setConsentChecked] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [uploadStatusText, setUploadStatusText] = useState('Mengunggah berkas privat...');
+  const [uploadStage, setUploadStage] = useState('Mengunggah berkas privat...');
   const [error, setError] = useState<string | null>(null);
 
   const quarantineNotice = getQuarantineNotice(file);
@@ -148,7 +148,7 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
     try {
       setUploading(true);
       setProgress(0);
-      setUploadStatusText('Mempersiapkan sesi unggahan aman...');
+      setUploadStage('Menyiapkan unggahan terautentikasi...');
       setError(null);
 
       // 1. Upload strictly through server-authoritative Appwrite Function gateway (private-by-default)
@@ -159,27 +159,12 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
         photographer: photographer || user.name || 'Staf Museum',
         isPublicIntent: effectivePublic,
         onProgress: (percent) => setProgress(percent),
-        onStatus: ({ chunkIndex, totalChunks, phase, retryAttempt }) => {
-          if (phase === 'hashing') {
-            setUploadStatusText('Menghitung checksum integritas SHA-256...');
-          } else if (phase === 'retrying') {
-            setUploadStatusText(
-              `Gangguan jaringan pada potongan ${chunkIndex + 1}/${totalChunks}, mencoba ulang (${retryAttempt})...`
-            );
-          } else if (phase === 'finalizing') {
-            setUploadStatusText(
-              totalChunks > 1
-                ? `Mengunggah potongan akhir ${chunkIndex + 1}/${totalChunks} & memverifikasi server...`
-                : 'Mengunggah & memverifikasi integritas + metadata di server...'
-            );
-          } else {
-            setUploadStatusText(`Mengunggah potongan aman ${chunkIndex + 1}/${totalChunks}...`);
-          }
-        },
+        onStatusChange: (stage) => setUploadStage(stage),
       });
 
       // 2. If authorized curator explicitly opted in to immediate publish, perform explicit server publish step
       if (effectivePublic) {
+        setUploadStage('Menerbitkan izin baca publik di server...');
         try {
           await setMediaVisibilityViaGateway(uploadResult.asset.fileId, true);
         } catch (pubErr: any) {
@@ -401,9 +386,9 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
       {/* Progress Bar */}
       {uploading && (
         <div className="space-y-1">
-          <div className="flex justify-between gap-2 text-xs text-muted">
-            <span className="truncate">{uploadStatusText}</span>
-            <span className="font-mono shrink-0">{progress}%</span>
+          <div className="flex justify-between text-xs text-muted">
+            <span>{uploadStage}</span>
+            <span>{progress}%</span>
           </div>
           <div className="w-full h-2 rounded-full bg-sand-200 overflow-hidden">
             <div

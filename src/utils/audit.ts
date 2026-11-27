@@ -42,14 +42,50 @@ export async function recordAuditLog(params: {
 }
 
 export function formatAppwriteError(err: any, refreshAuth?: () => Promise<void>): string {
-  if (err?.code === 401) {
+  const status = typeof err?.status === 'number' ? err.status : err?.code;
+  const serverMsg = typeof err?.message === 'string' && err.message.trim() ? err.message.trim() : '';
+
+  if (status === 401) {
     if (refreshAuth) {
       refreshAuth().catch(() => {});
     }
-    return 'Sesi atau hak akses Anda tidak memadai / telah kedaluwarsa (HTTP 401). Silakan periksa peran akun atau login ulang.';
+    return 'Sesi autentikasi telah kedaluwarsa atau tidak sah (HTTP 401). Silakan masuk ulang dan mulai operasi dari awal.';
   }
-  if (err?.code === 409) {
-    return 'Slug atau pengenal unik sudah digunakan oleh arsip lain. Gunakan slug yang berbeda.';
+  if (status === 403) {
+    return (
+      serverMsg ||
+      'Akses ditolak (HTTP 403): peran akun Anda tidak memiliki wewenang untuk tindakan ini.'
+    );
   }
-  return err?.message || 'Terjadi kendala saat menyimpan ke Appwrite.';
+  if (status === 409) {
+    return (
+      serverMsg ||
+      'Terjadi konflik data atau urutan chunk unggahan (HTTP 409). Muat ulang halaman sebelum mencoba kembali.'
+    );
+  }
+  if (status === 410) {
+    return (
+      serverMsg ||
+      'Sesi unggahan server telah kedaluwarsa (HTTP 410). Silakan mulai unggahan ulang dari awal.'
+    );
+  }
+  if (status === 413) {
+    return (
+      serverMsg ||
+      'Ukuran berkas melebihi batas yang diizinkan server (HTTP 413).'
+    );
+  }
+  if (status === 422) {
+    return (
+      serverMsg ||
+      'Berkas dikarantina atau gagal verifikasi integritas server (HTTP 422).'
+    );
+  }
+  if (status === 429) {
+    return (
+      serverMsg ||
+      'Terlalu banyak permintaan dalam waktu singkat (HTTP 429). Tunggu beberapa saat lalu coba lagi.'
+    );
+  }
+  return serverMsg || 'Terjadi kendala saat berkomunikasi dengan server Appwrite.';
 }

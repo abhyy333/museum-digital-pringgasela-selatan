@@ -6,9 +6,16 @@ import { VillageHistory } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const HistoryPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Linimasa Sejarah Desa — Museum Digital Pringgasela Selatan',
+      'Village Historical Chronicle — South Pringgasela Digital Museum'
+    )
+  );
   const [eras, setEras] = useState<VillageHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,10 +65,7 @@ export const HistoryPage: React.FC = () => {
       ) : eras.length > 0 ? (
         <div className="relative border-l-2 border-primary/30 ml-4 sm:ml-8 pl-6 sm:pl-10 space-y-12">
           {eras.map((era, index) => {
-            const trans =
-              era.translations?.find((tr) => tr.locale === locale) ||
-              era.translations?.find((tr) => tr.locale === 'id') ||
-              era.translations?.[0];
+            const trans = pickTranslation(era.translations, locale);
 
             const title = trans?.eraTitle || era.slug;
             const narrative = trans?.narrative || '';

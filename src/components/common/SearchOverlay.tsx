@@ -4,6 +4,7 @@ import { Search, X, ArrowRight, Compass, Sparkles, ShieldCheck, History } from '
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
 import { WeavingMotif, Craft, Culture, VillageHistory } from '../../types/schema';
+import { pickTranslation } from '../../utils/i18n';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
 
   const matchingMotifs = motifs.filter((m) => {
     if (!q) return true;
-    const trans = m.translations?.find((tr) => tr.locale === locale) || m.translations?.[0];
+    const trans = pickTranslation(m.translations, locale);
     return (
       trans?.name?.toLowerCase().includes(q) ||
       trans?.philosophy?.toLowerCase().includes(q) ||
@@ -74,7 +75,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
 
   const matchingCrafts = crafts.filter((c) => {
     if (!q) return true;
-    const trans = c.translations?.find((tr) => tr.locale === locale) || c.translations?.[0];
+    const trans = pickTranslation(c.translations, locale);
     return (
       trans?.title?.toLowerCase().includes(q) ||
       trans?.summary?.toLowerCase().includes(q) ||
@@ -84,7 +85,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
 
   const matchingCultures = cultures.filter((c) => {
     if (!q) return true;
-    const trans = c.translations?.find((tr) => tr.locale === locale) || c.translations?.[0];
+    const trans = pickTranslation(c.translations, locale);
     return (
       trans?.title?.toLowerCase().includes(q) ||
       trans?.summary?.toLowerCase().includes(q) ||
@@ -94,7 +95,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
 
   const matchingHistory = history.filter((h) => {
     if (!q) return true;
-    const trans = h.translations?.find((tr) => tr.locale === locale) || h.translations?.[0];
+    const trans = pickTranslation(h.translations, locale);
     return (
       trans?.eraTitle?.toLowerCase().includes(q) ||
       trans?.narrative?.toLowerCase().includes(q) ||
@@ -175,9 +176,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
                   </div>
                   <div className="divide-y divide-softLinen border-y border-softLinen">
                     {matchingMotifs.slice(0, 5).map((item) => {
-                      const tr =
-                        item.translations?.find((tRow) => tRow.locale === locale) ||
-                        item.translations?.[0];
+                      const tr = pickTranslation(item.translations, locale);
                       return (
                         <Link
                           key={item.$id}
@@ -209,9 +208,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
                   </div>
                   <div className="divide-y divide-softLinen border-y border-softLinen">
                     {matchingCrafts.slice(0, 5).map((item) => {
-                      const tr =
-                        item.translations?.find((tRow) => tRow.locale === locale) ||
-                        item.translations?.[0];
+                      const tr = pickTranslation(item.translations, locale);
                       return (
                         <Link
                           key={item.$id}
@@ -243,9 +240,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
                   </div>
                   <div className="divide-y divide-softLinen border-y border-softLinen">
                     {matchingCultures.slice(0, 5).map((item) => {
-                      const tr =
-                        item.translations?.find((tRow) => tRow.locale === locale) ||
-                        item.translations?.[0];
+                      const tr = pickTranslation(item.translations, locale);
                       return (
                         <Link
                           key={item.$id}
@@ -277,9 +272,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
                   </div>
                   <div className="divide-y divide-softLinen border-y border-softLinen">
                     {matchingHistory.slice(0, 5).map((item) => {
-                      const tr =
-                        item.translations?.find((tRow) => tRow.locale === locale) ||
-                        item.translations?.[0];
+                      const tr = pickTranslation(item.translations, locale);
                       return (
                         <Link
                           key={item.$id}

@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, AlertCircle, Shield, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useDocumentTitle } from '../../utils/i18n';
 
 export const AdminLoginPage: React.FC = () => {
   const { login, logout, user, role } = useAuth();
   const navigate = useNavigate();
+  useDocumentTitle('Masuk Portal Pengelola — Museum Digital Pringgasela Selatan', { noindex: true });
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -129,15 +131,10 @@ export const AdminLoginPage: React.FC = () => {
             </button>
           </form>
 
-          <div className="pt-4 border-t border-border/80 space-y-1.5 text-[11px] text-muted">
-            <p className="font-semibold text-text/80 uppercase tracking-wider">
-              Akses Pengelola Resmi (Appwrite Auth)
-            </p>
-            <p className="leading-relaxed">
-              Masuk menggunakan akun email terverifikasi yang terdaftar pada tim kurator{' '}
-              <code className="font-mono text-primary">museum-admins</code> (Super Admin, Admin Desa, atau Admin KKN).
-            </p>
-          </div>
+          <p className="pt-4 border-t border-border/80 text-[11px] text-muted text-center leading-relaxed">
+            Gunakan akun resmi pengelola yang terdaftar di tim kurator{' '}
+            <code className="font-mono text-primary">museum-admins</code>.
+          </p>
 
         </div>
       </div>

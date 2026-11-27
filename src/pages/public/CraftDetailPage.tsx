@@ -8,6 +8,7 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Badge } from '../../components/common/Badge';
 import { MediaGalleryViewer } from '../../components/public/MediaGalleryViewer';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const CraftDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -35,6 +36,10 @@ export const CraftDetailPage: React.FC = () => {
     fetchCraft();
   }, [slug]);
 
+  const trans = pickTranslation(craft?.translations, locale);
+  const resolvedTitle = trans?.title || craft?.slug || t('Kriya Tradisional', 'Traditional Craft');
+  useDocumentTitle(`${resolvedTitle} — Museum Digital Pringgasela Selatan`);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20">
@@ -59,11 +64,6 @@ export const CraftDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  const trans =
-    craft.translations?.find((tr) => tr.locale === locale) ||
-    craft.translations?.find((tr) => tr.locale === 'id') ||
-    craft.translations?.[0];
 
   const title = trans?.title || craft.slug;
 

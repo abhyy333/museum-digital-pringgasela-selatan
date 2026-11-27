@@ -7,9 +7,16 @@ import { CultureCard } from '../../components/public/CultureCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const CulturesPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Tradisi Adat & Budaya — Museum Digital Pringgasela Selatan',
+      'Cultural Rites & Traditions — South Pringgasela Digital Museum'
+    )
+  );
   const [cultures, setCultures] = useState<Culture[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -35,9 +42,7 @@ export const CulturesPage: React.FC = () => {
   const filteredCultures = cultures.filter((c) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const trans =
-      c.translations?.find((tr) => tr.locale === locale) ||
-      c.translations?.[0];
+    const trans = pickTranslation(c.translations, locale);
     const titleMatch = trans?.title?.toLowerCase().includes(q) || false;
     const sumMatch = trans?.summary?.toLowerCase().includes(q) || false;
     const slugMatch = c.slug.toLowerCase().includes(q);

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Models } from 'appwrite';
+import { Models, Query } from 'appwrite';
 import { account, teams } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { AdminRole } from '../types/schema';
@@ -25,9 +25,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const determineRole = async (userId: string): Promise<AdminRole | null> => {
     try {
-      const res = await teams.listMemberships(APPWRITE_CONFIG.adminTeamId);
+      const res = await teams.listMemberships(APPWRITE_CONFIG.adminTeamId, [Query.limit(100)]);
       const myMembership = res.memberships.find((m) => m.userId === userId);
-      if (!myMembership) return null;
+      if (!myMembership || !myMembership.confirm) return null;
 
       const roles = myMembership.roles || [];
       if (roles.includes('owner')) return 'super_admin';
@@ -61,6 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
+      // Clear any stale or unauthorized active session so Appwrite does not throw user_session_already_exists
+      await account.deleteSession('current').catch(() => {});
       await account.createEmailPasswordSession(email, password);
       await checkSession();
     } finally {

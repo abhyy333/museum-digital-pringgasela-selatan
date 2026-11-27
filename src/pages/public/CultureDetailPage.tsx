@@ -9,6 +9,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { Badge } from '../../components/common/Badge';
 import { MediaGalleryViewer } from '../../components/public/MediaGalleryViewer';
 import { getFileViewUrl, resolveMediaFileId } from '../../utils/media';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const CultureDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -36,6 +37,10 @@ export const CultureDetailPage: React.FC = () => {
     fetchCulture();
   }, [slug]);
 
+  const trans = pickTranslation(culture?.translations, locale);
+  const resolvedTitle = trans?.title || culture?.slug || t('Tradisi Budaya', 'Living Tradition');
+  useDocumentTitle(`${resolvedTitle} — Museum Digital Pringgasela Selatan`);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20">
@@ -60,11 +65,6 @@ export const CultureDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  const trans =
-    culture.translations?.find((tr) => tr.locale === locale) ||
-    culture.translations?.find((tr) => tr.locale === 'id') ||
-    culture.translations?.[0];
 
   const title = trans?.title || culture.slug;
 

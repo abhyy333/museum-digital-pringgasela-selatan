@@ -7,9 +7,16 @@ import { WeavingMotif, Culture, VillageHistory } from '../../types/schema';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { MotifCard } from '../../components/public/MotifCard';
 import { CultureCard } from '../../components/public/CultureCard';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const CuratorialPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Ulasan Kuratorial — Museum Digital Pringgasela Selatan',
+      'Curatorial Essay — South Pringgasela Digital Museum'
+    )
+  );
   const [motifs, setMotifs] = useState<WeavingMotif[]>([]);
   const [cultures, setCultures] = useState<Culture[]>([]);
   const [eras, setEras] = useState<VillageHistory[]>([]);
@@ -144,7 +151,7 @@ export const CuratorialPage: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {eras.map((era) => {
-                  const tr = era.translations?.find((tRow) => tRow.locale === locale) || era.translations?.[0];
+                  const tr = pickTranslation(era.translations, locale);
                   return (
                     <div key={era.$id} className="bg-surface/90 border border-softLinen p-5 space-y-2">
                       <span className="font-mono text-xs font-semibold text-terracotta">

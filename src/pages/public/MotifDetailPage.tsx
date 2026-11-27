@@ -21,6 +21,7 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Badge } from '../../components/common/Badge';
 import { MediaGalleryViewer } from '../../components/public/MediaGalleryViewer';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const MotifDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -47,6 +48,10 @@ export const MotifDetailPage: React.FC = () => {
 
     fetchMotif();
   }, [slug]);
+
+  const trans = pickTranslation(motif?.translations, locale);
+  const resolvedTitle = trans?.name || motif?.slug || t('Motif Tenun', 'Weaving Motif');
+  useDocumentTitle(`${resolvedTitle} — Museum Digital Pringgasela Selatan`);
 
   if (loading) {
     return (
@@ -76,12 +81,7 @@ export const MotifDetailPage: React.FC = () => {
     );
   }
 
-  // Active translation
-  const trans =
-    motif.translations?.find((tr) => tr.locale === locale) ||
-    motif.translations?.find((tr) => tr.locale === 'id') ||
-    motif.translations?.[0];
-
+  // Active translation resolved safely
   const name = trans?.name || motif.slug;
 
   const handleShare = () => {

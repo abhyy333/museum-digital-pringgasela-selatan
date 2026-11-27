@@ -5,6 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { publicApi } from '../../appwrite/publicApi';
 import { WovenGridLogo } from './DecorativeIcons';
+import { pickTranslation } from '../../utils/i18n';
 
 interface SearchResultItem {
   id: string;
@@ -84,7 +85,7 @@ export const Navbar: React.FC = () => {
 
         if (mRes.status === 'fulfilled') {
           for (const m of mRes.value.items || []) {
-            const tr = m.translations?.find((x) => x.locale === locale) || m.translations?.[0];
+            const tr = pickTranslation(m.translations, locale);
             const title = tr?.name || m.slug;
             if (title.toLowerCase().includes(q) || (m.codeName || '').toLowerCase().includes(q)) {
               found.push({ id: m.$id, title, kind: t('Motif Tenun', 'Weaving Motif'), to: `/motifs/${m.slug}` });
@@ -93,7 +94,7 @@ export const Navbar: React.FC = () => {
         }
         if (cRes.status === 'fulfilled') {
           for (const c of cRes.value.items || []) {
-            const tr = c.translations?.find((x) => x.locale === locale) || c.translations?.[0];
+            const tr = pickTranslation(c.translations, locale);
             const title = tr?.title || c.slug;
             if (title.toLowerCase().includes(q)) {
               found.push({ id: c.$id, title, kind: t('Kriya Tradisional', 'Traditional Craft'), to: `/crafts/${c.slug}` });
@@ -102,7 +103,7 @@ export const Navbar: React.FC = () => {
         }
         if (cuRes.status === 'fulfilled') {
           for (const cu of cuRes.value.items || []) {
-            const tr = cu.translations?.find((x) => x.locale === locale) || cu.translations?.[0];
+            const tr = pickTranslation(cu.translations, locale);
             const title = tr?.title || cu.slug;
             if (title.toLowerCase().includes(q)) {
               found.push({ id: cu.$id, title, kind: t('Cerita & Tradisi', 'Living Tradition'), to: `/cultures/${cu.slug}` });

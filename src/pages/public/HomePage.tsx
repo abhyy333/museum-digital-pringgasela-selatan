@@ -5,8 +5,17 @@ import { HeroStage } from '../../components/home/HeroStage';
 import { CollectionShowcase } from '../../components/home/CollectionShowcase';
 import { CuratorialExplorer } from '../../components/home/CuratorialExplorer';
 import { LiveMuseumArchive } from '../../components/home/LiveMuseumArchive';
+import { useLanguage } from '../../context/LanguageContext';
+import { useDocumentTitle } from '../../utils/i18n';
 
 export const HomePage: React.FC = () => {
+  const { t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Museum Digital Pringgasela Selatan — Arsip Budaya & Tenun Sasak',
+      'South Pringgasela Digital Museum — Sasak Cultural & Weaving Archive'
+    )
+  );
   const [motifs, setMotifs] = useState<WeavingMotif[]>([]);
   const [cultures, setCultures] = useState<Culture[]>([]);
   const [historyEras, setHistoryEras] = useState<VillageHistory[]>([]);

@@ -41,49 +41,11 @@ export interface GatewayPublishResult {
 
 export class GatewayApiError extends Error {
   status: number;
-  code: number;
 
   constructor(message: string, status: number) {
     super(message);
     this.name = 'GatewayApiError';
     this.status = status;
-    this.code = status;
-  }
-}
-
-export interface UploadChunkStatus {
-  percent: number;
-  chunkIndex: number;
-  totalChunks: number;
-  phase: 'hashing' | 'uploading' | 'retrying' | 'finalizing';
-  retryAttempt?: number;
-}
-
-export function formatGatewayStatusError(
-  status: number,
-  serverMsg?: string,
-  retryAfterHeader?: string | null
-): string {
-  const detail = serverMsg ? ` (${serverMsg})` : '';
-  switch (status) {
-    case 401:
-      return `Sesi login Anda telah kedaluwarsa atau JWT ditolak (HTTP 401)${detail}. Silakan masuk kembali sebelum mengunggah.`;
-    case 403:
-      return `Akses ditolak: peran atau kepemilikan sesi tidak berwenang melakukan tindakan ini (HTTP 403)${detail}.`;
-    case 409:
-      return `Konflik sesi unggahan: potongan ganda, urutan tidak sesuai, atau perubahan berkas di tengah proses (HTTP 409)${detail}. Ulangi unggahan dari awal.`;
-    case 410:
-      return `Sesi unggahan multi-chunk telah kedaluwarsa (>20 menit, HTTP 410)${detail}. Mulai unggahan ulang dari awal.`;
-    case 413:
-      return `Ukuran berkas atau potongan melebihi batas maksimum 50 MB / 5 MiB per chunk (HTTP 413)${detail}.`;
-    case 422:
-      return `Validasi integritas atau kebijakan karantina menolak tindakan ini (HTTP 422)${detail}.`;
-    case 429: {
-      const wait = retryAfterHeader ? ` Coba lagi setelah ${retryAfterHeader} detik.` : '';
-      return `Terlalu banyak permintaan dalam waktu singkat (HTTP 429).${wait}${detail}`;
-    }
-    default:
-      return serverMsg || `Permintaan ditolak server gateway (HTTP ${status}).`;
   }
 }
 
@@ -135,8 +97,7 @@ async function computeSha256Hex(blob: Blob): Promise<string | null> {
 async function fetchWithBoundedRetry(
   url: string,
   init: RequestInit,
-  maxTransientRetries = 2,
-  onRetry?: (attempt: number) => void
+  maxTransientRetries = 2
 ): Promise<Response> {
   let attempt = 0;
   while (true) {
@@ -151,7 +112,6 @@ async function fetchWithBoundedRetry(
       }
     }
     attempt += 1;
-    onRetry?.(attempt);
     await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
   }
 }
@@ -168,38 +128,49 @@ export async function uploadMediaViaGateway(params: {
   photographer?: string;
   isPublicIntent?: boolean;
   onProgress?: (percent: number) => void;
-  onStatus?: (status: UploadChunkStatus) => void;
+  onStatusChange?: (stage: string) => void;
 }): Promise<GatewayUploadResult> {
-  const { file, captionId, captionEn, photographer, isPublicIntent = false, onProgress, onStatus } = params;
+  const {
+    file,
+    captionId,
+    captionEn,
+    photographer,
+    isPublicIntent = false,
+    onProgress,
+    onStatusChange,
+  } = params;
   const totalSize = file.size;
   if (totalSize <= 0) {
     throw new GatewayApiError('Berkas kosong tidak dapat diunggah.', 400);
   }
 
+  onStatusChange?.('Menyiapkan sesi autentikasi & validasi berkas...');
   const jwt = await createUserJwt();
   const mimeType = resolveMimeType(file);
   const totalChunks = Math.max(1, Math.ceil(totalSize / GATEWAY_CHUNK_BYTES));
   let uploadId = '';
   let sessionToken = '';
 
+  let singleChunkSha256: string | null = null;
   if (totalChunks === 1) {
-    onStatus?.({ percent: 5, chunkIndex: 0, totalChunks, phase: 'hashing' });
+    onStatusChange?.('Menghitung checksum SHA-256...');
+    singleChunkSha256 = await computeSha256Hex(file);
   }
-  const singleChunkSha256 = totalChunks === 1 ? await computeSha256Hex(file) : null;
 
   for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
     const start = chunkIndex * GATEWAY_CHUNK_BYTES;
     const endExclusive = Math.min(totalSize, start + GATEWAY_CHUNK_BYTES);
     const end = endExclusive - 1;
     const chunkBlob = file.slice(start, endExclusive, mimeType);
-    const basePercent = Math.round((start / totalSize) * 100);
+    const isFinalChunk = chunkIndex === totalChunks - 1;
 
-    onStatus?.({
-      percent: Math.max(5, basePercent),
-      chunkIndex,
-      totalChunks,
-      phase: chunkIndex === totalChunks - 1 ? 'finalizing' : 'uploading',
-    });
+    onStatusChange?.(
+      totalChunks === 1
+        ? 'Mengirim & memvalidasi berkas di server...'
+        : isFinalChunk
+        ? `Mengunggah potongan akhir (${chunkIndex + 1}/${totalChunks}) & finalisasi...`
+        : `Mengunggah potongan ${chunkIndex + 1}/${totalChunks}...`
+    );
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${jwt}`,
@@ -223,58 +194,36 @@ export async function uploadMediaViaGateway(params: {
       headers['X-Upload-Session-Token'] = sessionToken;
     }
 
-    if (chunkIndex === totalChunks - 1) {
+    if (isFinalChunk) {
       if (captionId) headers['X-Caption-Id'] = encodeURIComponent(captionId);
       if (captionEn) headers['X-Caption-En'] = encodeURIComponent(captionEn);
       if (photographer) headers['X-Photographer'] = encodeURIComponent(photographer);
     }
 
-    const res = await fetchWithBoundedRetry(
-      `${APPWRITE_CONFIG.adminMediaGatewayUrl}/upload-chunk`,
-      {
-        method: 'POST',
-        headers,
-        body: chunkBlob,
-      },
-      2,
-      (attempt) => {
-        onStatus?.({
-          percent: Math.max(5, basePercent),
-          chunkIndex,
-          totalChunks,
-          phase: 'retrying',
-          retryAttempt: attempt,
-        });
-      }
-    );
+    const res = await fetchWithBoundedRetry(`${APPWRITE_CONFIG.adminMediaGatewayUrl}/upload-chunk`, {
+      method: 'POST',
+      headers,
+      body: chunkBlob,
+    });
 
     const data = await parseGatewayJson(res);
     if (!res.ok) {
-      // Never continue using expired/revoked session credentials on 401/410
+      // Never retain or resume stale upload session token after 401/410 auth/session expiration
       if (res.status === 401 || res.status === 410) {
         uploadId = '';
         sessionToken = '';
       }
       throw new GatewayApiError(
-        formatGatewayStatusError(
-          res.status,
-          data?.error || data?.message,
-          res.headers.get('retry-after')
-        ),
+        data?.error || data?.message || `Unggahan ditolak server (HTTP ${res.status}).`,
         res.status
       );
     }
 
     const percent = Math.min(99, Math.round((endExclusive / totalSize) * 100));
     onProgress?.(data?.completed ? 100 : percent);
-    onStatus?.({
-      percent: data?.completed ? 100 : percent,
-      chunkIndex,
-      totalChunks,
-      phase: data?.completed ? 'finalizing' : 'uploading',
-    });
 
     if (data?.completed) {
+      onStatusChange?.('Unggahan selesai & tercatat di server.');
       return {
         asset: data.asset as MediaAsset,
         storagePermissions: Array.isArray(data.storagePermissions) ? data.storagePermissions : [],

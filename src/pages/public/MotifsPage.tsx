@@ -8,9 +8,16 @@ import { MotifCard } from '../../components/public/MotifCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
+import { pickTranslation, useDocumentTitle } from '../../utils/i18n';
 
 export const MotifsPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Ensiklopedia Motif Tenun — Museum Digital Pringgasela Selatan',
+      'Weaving Motif Encyclopedia — South Pringgasela Digital Museum'
+    )
+  );
   const [searchParams] = useSearchParams();
   const [motifs, setMotifs] = useState<WeavingMotif[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -37,11 +44,6 @@ export const MotifsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    setSelectedCategory(searchParams.get('category') || 'all');
-    setSearchQuery(searchParams.get('q') || '');
-  }, [searchParams]);
-
-  useEffect(() => {
     fetchMotifs();
   }, []);
 
@@ -57,9 +59,7 @@ export const MotifsPage: React.FC = () => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
 
-      const trans =
-        motif.translations?.find((tr) => tr.locale === locale) ||
-        motif.translations?.[0];
+      const trans = pickTranslation(motif.translations, locale);
 
       const nameMatch = trans?.name?.toLowerCase().includes(q) || false;
       const codeMatch = motif.codeName?.toLowerCase().includes(q) || false;

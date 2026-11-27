@@ -13,15 +13,6 @@ import {
 } from '../types/api';
 
 async function invokePublicApi<T>(path: string, query: Record<string, any> = {}): Promise<T> {
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(query || {})) {
-    if (v !== undefined && v !== null && v !== '') {
-      params.set(k, String(v));
-    }
-  }
-  const qs = params.toString();
-  const fullPath = qs ? `${path}${path.includes('?') ? '&' : '?'}${qs}` : path;
-
   const url = `${APPWRITE_CONFIG.endpoint}/functions/${APPWRITE_CONFIG.publicApiFunctionId}/executions`;
   const res = await fetch(url, {
     method: 'POST',
@@ -30,9 +21,9 @@ async function invokePublicApi<T>(path: string, query: Record<string, any> = {})
       'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
     },
     body: JSON.stringify({
-      path: fullPath,
+      path,
       method: 'GET',
-      body: JSON.stringify({ path: fullPath, method: 'GET', query }),
+      query,
     }),
   });
 

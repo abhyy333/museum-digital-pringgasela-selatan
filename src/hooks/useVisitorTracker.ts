@@ -1,27 +1,42 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { trackPublicVisitorEvent } from '../appwrite/analyticsApi';
+import { sendPublicAnalyticsEvent } from '../appwrite/analyticsApi';
 
-const HEARTBEAT_INTERVAL_MS = 40_000;
+const HEARTBEAT_INTERVAL_MS = 45_000;
+const SAME_PATH_DEDUPE_MS = 15_000;
 
 /**
- * Tracks public museum pageviews and lightweight visibility-gated heartbeats.
- * Never tracks /admin routes and stores zero personal data or IP addresses.
+ * Lightweight privacy-safe visitor tracker strictly for public routes.
+ * Sends deduplicated pageview pings and 45s visibility-aware heartbeats
+ * through museum-public-api (never writes directly to TablesDB).
  */
 export function useVisitorTracker(): void {
   const location = useLocation();
-  const lastHeartbeatAtRef = useRef<number>(0);
+  const lastTrackedRef = useRef<{ path: string; ts: number }>({ path: '', ts: 0 });
+  const currentPathRef = useRef<string>(location.pathname);
+  currentPathRef.current = location.pathname;
 
   useEffect(() => {
-    const cleanPath = location.pathname || '/';
-    if (cleanPath.startsWith('/admin')) return;
+    const pathname = location.pathname;
+    if (!pathname || pathname === '/admin' || pathname.startsWith('/admin/')) {
+      return;
+    }
 
+    const now = Date.now();
+    if (
+      lastTrackedRef.current.path === pathname &&
+      now - lastTrackedRef.current.ts < SAME_PATH_DEDUPE_MS
+    ) {
+      return;
+    }
+
+    // Brief 350ms delay so route useDocumentTitle settles cleanly before recording pageTitle
     const timer = setTimeout(() => {
-      lastHeartbeatAtRef.current = Date.now();
-      trackPublicVisitorEvent({
-        path: cleanPath,
-        titleHint: document.title,
+      lastTrackedRef.current = { path: pathname, ts: Date.now() };
+      void sendPublicAnalyticsEvent({
         eventType: 'pageview',
+        path: pathname,
+        pageTitle: document.title,
       });
     }, 350);
 
@@ -29,32 +44,22 @@ export function useVisitorTracker(): void {
   }, [location.pathname]);
 
   useEffect(() => {
-    const cleanPath = location.pathname || '/';
-    if (cleanPath.startsWith('/admin')) return;
-
-    const sendHeartbeat = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - lastHeartbeatAtRef.current < 25_000) return;
-      lastHeartbeatAtRef.current = now;
-      trackPublicVisitorEvent({
-        path: cleanPath,
-        titleHint: document.title,
-        eventType: 'heartbeat',
-      });
-    };
-
-    const interval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        sendHeartbeat();
+    const interval = setInterval(() => {
+      const path = currentPathRef.current;
+      if (
+        document.visibilityState === 'visible' &&
+        path &&
+        path !== '/admin' &&
+        !path.startsWith('/admin/')
+      ) {
+        void sendPublicAnalyticsEvent({
+          eventType: 'heartbeat',
+          path,
+          pageTitle: document.title,
+        });
       }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
+    }, HEARTBEAT_INTERVAL_MS);
 
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [location.pathname]);
+    return () => clearInterval(interval);
+  }, []);
 }

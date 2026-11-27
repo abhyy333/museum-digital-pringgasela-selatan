@@ -2,9 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Landmark, Compass, Users, MapPin, Mail, Clock, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { publicApi } from '../../appwrite/publicApi';
+import { useDocumentTitle } from '../../utils/i18n';
 
 export const AboutPage: React.FC = () => {
   const { locale, t } = useLanguage();
+  useDocumentTitle(
+    t(
+      'Tentang Museum — Museum Digital Pringgasela Selatan',
+      'About the Museum — South Pringgasela Digital Museum'
+    )
+  );
   const [settings, setSettings] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -28,7 +35,7 @@ export const AboutPage: React.FC = () => {
         <p className="text-muted text-base leading-relaxed">
           {(locale === 'en'
             ? settings.museum_description_en || settings.museum_description_id
-            : settings.museum_description_id) ||
+            : settings.museum_description_id || settings.museum_description_en) ||
             t(
               'Sebuah inisiatif preservasi digital komprehensif untuk melindungi, mendokumentasikan, dan memperluas literasi kebudayaan tenun tradisional, Dzikir Saman, dan peradaban luhur Sasak Pringgasela Selatan.',
               'A digital heritage initiative dedicated to safeguarding and sharing traditional Sasak weaving, sacred chants, and the founding history of South Pringgasela.'

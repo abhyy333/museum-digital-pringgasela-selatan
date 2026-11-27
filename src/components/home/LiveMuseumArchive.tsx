@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { WeavingMotif, VillageHistory, Culture } from '../../types/schema';
-import { getFilePreviewUrl } from '../../utils/media';
+import { getFilePreviewUrl, resolveMediaFileId } from '../../utils/media';
+import { pickTranslation } from '../../utils/i18n';
 
 interface LiveMuseumArchiveProps {
   motifs: WeavingMotif[];
@@ -108,11 +109,8 @@ export const LiveMuseumArchive: React.FC<LiveMuseumArchiveProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Column 1: Featured Motifs from Appwrite */}
             {motifs.slice(0, 1).map((motif) => {
-              const trans =
-                motif.translations?.find((tr) => tr.locale === locale) ||
-                motif.translations?.find((tr) => tr.locale === 'id') ||
-                motif.translations?.[0];
-              const mediaId = motif.media?.[0]?.mediaAssetId;
+              const trans = pickTranslation(motif.translations, locale);
+              const mediaId = resolveMediaFileId(motif.media?.[0]);
               const imgUrl = mediaId
                 ? getFilePreviewUrl(mediaId, { width: 800, height: 500 })
                 : '/assets/collection-motif-tenun.webp';
@@ -161,11 +159,8 @@ export const LiveMuseumArchive: React.FC<LiveMuseumArchiveProps> = ({
 
             {/* Column 2: Living Culture Entry from Appwrite */}
             {cultures.slice(0, 1).map((culture) => {
-              const trans =
-                culture.translations?.find((tr) => tr.locale === locale) ||
-                culture.translations?.find((tr) => tr.locale === 'id') ||
-                culture.translations?.[0];
-              const mediaId = culture.media?.[0]?.mediaAssetId;
+              const trans = pickTranslation(culture.translations, locale);
+              const mediaId = resolveMediaFileId(culture.media?.[0]);
               const imgUrl = mediaId
                 ? getFilePreviewUrl(mediaId, { width: 800, height: 500 })
                 : '/assets/collection-arsitektur.webp';
@@ -213,10 +208,7 @@ export const LiveMuseumArchive: React.FC<LiveMuseumArchiveProps> = ({
 
             {/* Column 3: Historical Era Chronicle from Appwrite */}
             {historyEras.slice(0, 1).map((era) => {
-              const trans =
-                era.translations?.find((tr) => tr.locale === locale) ||
-                era.translations?.find((tr) => tr.locale === 'id') ||
-                era.translations?.[0];
+              const trans = pickTranslation(era.translations, locale);
 
               return (
                 <article

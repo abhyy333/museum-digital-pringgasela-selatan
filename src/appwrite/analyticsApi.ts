@@ -1,177 +1,169 @@
-import { Channel, Realtime } from 'appwrite';
 import { account, client } from './client';
 import { APPWRITE_CONFIG } from './config';
+import { GatewayApiError } from './adminMediaApi';
 
-export type VisitorEventType = 'pageview' | 'heartbeat';
-export type ReferrerCategory = 'direct' | 'internal' | 'search' | 'social' | 'other';
-export type DeviceCategory = 'desktop' | 'tablet' | 'mobile';
+const SESSION_STORAGE_KEY = 'museum_pringgasela_anon_sid';
 
-export interface AnalyticsTrendPoint {
+export interface VisitorDailyPoint {
   dateKey: string;
-  label: string;
   uniqueVisitors: number;
   pageViews: number;
   mobileViews: number;
   desktopViews: number;
 }
 
-export interface AnalyticsRecentActivityItem {
-  path: string;
-  titleHint: string;
-  deviceCategory: DeviceCategory | string;
-  referrerCategory: ReferrerCategory | string;
-  lastSeenAt: string;
-  pageViewsCount: number;
-  isActive: boolean;
-}
-
-export interface AnalyticsPopularItem {
+export interface PopularContentItem {
   pageKey: string;
   contentType: string;
   slug: string | null;
-  title: string;
+  titleHint: string;
   pageViews: number;
   lastViewedAt: string;
-  thumbnailFileId: string | null;
+  thumbnailFileId?: string | null;
+}
+
+export interface RecentActivityItem {
+  path: string;
+  pageTitle: string;
+  deviceCategory: string;
+  referrerCategory: string;
+  lastSeenAt: string;
+  isActive: boolean;
 }
 
 export interface AdminAnalyticsSummary {
+  generatedAt: string;
   activeVisitors: number;
-  uniqueVisitorsToday: number;
-  pageViewsToday: number;
+  todayUniqueVisitors: number;
+  todayPageViews: number;
   totalPageViews: number;
-  publishedCounts: {
-    motifs: number;
-    crafts: number;
-    cultures: number;
-    history: number;
-    total: number;
-  };
-  deviceBreakdown: {
-    desktop: number;
-    tablet: number;
-    mobile: number;
-  };
-  trends: AnalyticsTrendPoint[];
-  recentActivity: AnalyticsRecentActivityItem[];
-  popularContent: AnalyticsPopularItem[];
-  lastUpdatedAt: string;
+  publishedContentCount: number;
+  dailySeries: VisitorDailyPoint[];
+  topPages: PopularContentItem[];
+  popularContent: PopularContentItem[];
+  recentActivity: RecentActivityItem[];
 }
-
-const SESSION_KEY = 'mdps_anon_session_v1';
 
 export function getOrCreateAnonymousSessionId(): string {
   try {
-    const existing = window.sessionStorage.getItem(SESSION_KEY);
+    const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (existing && /^[a-zA-Z0-9_-]{12,64}$/.test(existing)) {
       return existing;
     }
-    const generated =
+    const fresh =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID().replace(/-/g, '')
-        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
-    window.sessionStorage.setItem(SESSION_KEY, generated);
-    return generated;
+        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+    sessionStorage.setItem(SESSION_STORAGE_KEY, fresh);
+    return fresh;
   } catch {
-    return `ephem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    return `anon_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   }
 }
 
-export function detectDeviceCategory(): DeviceCategory {
+export function detectDeviceCategory(): 'mobile' | 'tablet' | 'desktop' {
   if (typeof window === 'undefined') return 'desktop';
   const w = window.innerWidth;
-  if (w < 768) return 'mobile';
+  if (w < 640) return 'mobile';
   if (w < 1024) return 'tablet';
   return 'desktop';
 }
 
-export function detectReferrerCategory(): ReferrerCategory {
+export function detectReferrerCategory(): 'direct' | 'internal' | 'search' | 'social' | 'external' {
   if (typeof document === 'undefined' || !document.referrer) return 'direct';
   try {
     const refUrl = new URL(document.referrer);
-    if (refUrl.host === window.location.host) return 'internal';
+    if (typeof window !== 'undefined' && refUrl.hostname === window.location.hostname) {
+      return 'internal';
+    }
     const host = refUrl.hostname.toLowerCase();
-    if (/(google\.|bing\.com|duckduckgo\.com|yahoo\.com|ecosia\.org|yandex\.)/.test(host)) {
+    if (/(google|bing|duckduckgo|yahoo|yandex|ecosia)\./.test(host)) {
       return 'search';
     }
-    if (/(instagram\.com|facebook\.com|fb\.com|tiktok\.com|twitter\.com|x\.com|t\.co|youtube\.com|wa\.me|whatsapp\.com|linkedin\.com)/.test(host)) {
+    if (/(facebook|instagram|fb|l\.instagram|t\.co|twitter|x\.com|tiktok|youtube|whatsapp)/.test(host)) {
       return 'social';
     }
-    return 'other';
+    return 'external';
   } catch {
     return 'direct';
   }
 }
 
-export async function trackPublicVisitorEvent(params: {
+export async function sendPublicAnalyticsEvent(params: {
+  eventType: 'pageview' | 'heartbeat';
   path: string;
-  titleHint?: string;
-  eventType: VisitorEventType;
+  pageTitle?: string;
 }): Promise<void> {
-  const cleanPath = (params.path || '/').split('?')[0].split('#')[0];
-  if (cleanPath.startsWith('/admin')) return;
-
-  const sessionId = getOrCreateAnonymousSessionId();
-  const payload = {
-    sessionId,
-    eventType: params.eventType,
-    path: cleanPath || '/',
-    titleHint: (params.titleHint || '').slice(0, 140),
-    referrerCategory: detectReferrerCategory(),
-    deviceCategory: detectDeviceCategory(),
-  };
+  if (!params.path || params.path === '/admin' || params.path.startsWith('/admin/')) {
+    return;
+  }
 
   try {
-    await fetch(
-      `${APPWRITE_CONFIG.endpoint}/functions/${APPWRITE_CONFIG.publicApiFunctionId}/executions`,
-      {
+    const sessionId = getOrCreateAnonymousSessionId();
+    const payload = {
+      eventType: params.eventType,
+      sessionId,
+      path: params.path,
+      pageTitle: (params.pageTitle || document.title || params.path).slice(0, 160),
+      referrerCategory: detectReferrerCategory(),
+      deviceCategory: detectDeviceCategory(),
+    };
+
+    const url = `${APPWRITE_CONFIG.endpoint}/functions/${APPWRITE_CONFIG.publicApiFunctionId}/executions`;
+    await fetch(url, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+      },
+      body: JSON.stringify({
+        xpath: '/analytics/track',
         method: 'POST',
-        keepalive: true,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-        },
         body: JSON.stringify({
           path: '/analytics/track',
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: payload,
         }),
-      }
-    );
+      }),
+    });
   } catch {
-    // Non-blocking visitor analytics: never interrupt browsing UX
+    // Non-blocking: public browsing must never degrade on analytics errors
   }
 }
 
-export async function fetchAdminAnalyticsSummary(range: 7 | 30 = 30): Promise<AdminAnalyticsSummary> {
-  const jwtRes = await account.createJWT();
-  if (!jwtRes?.jwt) {
-    throw new Error('Sesi kurator tidak aktif. Silakan masuk kembali.');
+export async function fetchAdminAnalyticsSummary(days: 7 | 30 = 30): Promise<AdminAnalyticsSummary> {
+  let jwt = '';
+  try {
+    const jwtRes = await account.createJWT();
+    jwt = jwtRes.jwt;
+  } catch (err: any) {
+    throw new GatewayApiError(
+      err?.message || 'Sesi autentikasi berakhir. Masuk kembali untuk melihat analitik.',
+      401
+    );
   }
 
-  const res = await fetch(
-    `${APPWRITE_CONFIG.adminMediaGatewayUrl}/analytics/summary?range=${range}`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${jwtRes.jwt}`,
-        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-      },
-    }
-  );
+  const res = await fetch(`${APPWRITE_CONFIG.adminMediaGatewayUrl}/analytics/summary?days=${days}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+    },
+  });
 
   const text = await res.text();
   let data: any = {};
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    data = { error: text };
+    data = { error: text || `HTTP ${res.status}` };
   }
 
   if (!res.ok) {
-    throw Object.assign(
-      new Error(data?.error || `Gagal memuat analitik pengunjung (HTTP ${res.status}).`),
-      { code: res.status }
+    throw new GatewayApiError(
+      data?.error || data?.message || `Gagal memuat data analitik (HTTP ${res.status}).`,
+      res.status
     );
   }
 
@@ -179,47 +171,43 @@ export async function fetchAdminAnalyticsSummary(range: 7 | 30 = 30): Promise<Ad
 }
 
 /**
- * Subscribe to Appwrite Realtime changes on analytics TablesDB channels (restricted to team:museum-admins).
- * Returns safe cleanup handle; degrades seamlessly to periodic polling if WebSocket is unavailable.
+ * Subscribes cleanly to Appwrite Cloud Realtime channels for visitor analytics tables
+ * with debouncing so bursts trigger a single efficient summary refresh.
  */
-export function subscribeAnalyticsRealtime(onChange: () => void): () => void {
-  let active = true;
-  let realtimeInstance: Realtime | null = null;
-  let subscription: { close?: () => Promise<void>; unsubscribe?: () => Promise<void> } | null = null;
+export function subscribeToVisitorRealtime(
+  onUpdate: () => void,
+  onStatusChange?: (connected: boolean) => void
+): () => void {
+  const dbId = APPWRITE_CONFIG.databaseId;
+  const channels = [
+    `databases.${dbId}.tables.visitor_sessions.rows`,
+    `databases.${dbId}.tables.visitor_daily_stats.rows`,
+    `databases.${dbId}.collections.visitor_sessions.documents`,
+    `databases.${dbId}.collections.visitor_daily_stats.documents`,
+  ];
+
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let unsub: (() => void) | null = null;
 
-  const triggerDebounced = () => {
-    if (!active) return;
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      if (active) onChange();
-    }, 800);
-  };
-
-  (async () => {
-    try {
-      realtimeInstance = new Realtime(client);
-      const dbId = APPWRITE_CONFIG.databaseId;
-      const channels = [
-        Channel.tablesdb(dbId).table('visitor_sessions').row().toString(),
-        Channel.tablesdb(dbId).table('visitor_daily_stats').row().toString(),
-        Channel.tablesdb(dbId).table('visitor_page_stats').row().toString(),
-      ];
-      subscription = await realtimeInstance.subscribe(channels, () => {
-        triggerDebounced();
-      });
-    } catch {
-      // Fallback polling remains active in AdminDashboardPage
-    }
-  })();
+  try {
+    unsub = client.subscribe(channels, () => {
+      onStatusChange?.(true);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        onUpdate();
+      }, 1500);
+    });
+    onStatusChange?.(true);
+  } catch {
+    onStatusChange?.(false);
+  }
 
   return () => {
-    active = false;
     if (debounceTimer) clearTimeout(debounceTimer);
-    if (subscription?.unsubscribe) {
-      subscription.unsubscribe().catch(() => {});
-    } else if (subscription?.close) {
-      subscription.close().catch(() => {});
+    if (typeof unsub === 'function') {
+      try {
+        unsub();
+      } catch {}
     }
   };
 }

@@ -1,95 +1,10 @@
 import crypto from 'node:crypto';
-import { Client, TablesDB, Storage, Query, ID } from 'node-appwrite';
+import { Client, TablesDB, Storage, Query, Permission, Role } from 'node-appwrite';
 
 const DB_ID = process.env.DATABASE_ID || 'museum_digital';
 const BUCKET_ID = process.env.STORAGE_BUCKET_ID || 'museum-media';
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1';
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID || '6affdaa0003c416ecdb0';
-
-const ALLOWED_ANALYTICS_ROOTS = new Set(['', 'motifs', 'crafts', 'cultures', 'curatorial', 'history', 'about']);
-const ALLOWED_REFERRERS = new Set(['direct', 'internal', 'search', 'social', 'other']);
-const ALLOWED_DEVICES = new Set(['desktop', 'tablet', 'mobile']);
-const analyticsRateBuckets = new Map();
-const recentPageviewCache = new Map();
-const SESSION_RATE_SALT = crypto.randomBytes(16).toString('hex');
-
-function getWitaDateKey(nowMs = Date.now()) {
-  const wita = new Date(nowMs + 8 * 60 * 60 * 1000);
-  return wita.toISOString().slice(0, 10);
-}
-
-function consumeAnalyticsRate(key, maxHits, windowMs = 60_000, nowMs = Date.now()) {
-  if (analyticsRateBuckets.size > 3000) {
-    for (const [k, stamps] of analyticsRateBuckets.entries()) {
-      if (stamps.length === 0 || nowMs - stamps[stamps.length - 1] > windowMs) {
-        analyticsRateBuckets.delete(k);
-      }
-    }
-  }
-  const cutoff = nowMs - windowMs;
-  const active = (analyticsRateBuckets.get(key) || []).filter((t) => t > cutoff);
-  if (active.length >= maxHits) {
-    analyticsRateBuckets.set(key, active);
-    return false;
-  }
-  active.push(nowMs);
-  analyticsRateBuckets.set(key, active);
-  return true;
-}
-
-function sanitizeTrackingPayload(raw) {
-  if (!raw || typeof raw !== 'object') return { ok: false, error: 'Payload analytics tidak valid.' };
-  const sessionId = String(raw.sessionId || '').trim();
-  if (!/^[a-zA-Z0-9_-]{12,64}$/.test(sessionId)) {
-    return { ok: false, error: 'Identifier sesi anonim tidak valid.' };
-  }
-  const eventType = raw.eventType === 'heartbeat' ? 'heartbeat' : raw.eventType === 'pageview' ? 'pageview' : null;
-  if (!eventType) {
-    return { ok: false, error: 'Jenis event analytics harus pageview atau heartbeat.' };
-  }
-
-  let rawPath = String(raw.path || '/').split('?')[0].split('#')[0].trim();
-  if (!rawPath.startsWith('/')) rawPath = `/${rawPath}`;
-  if (rawPath.length > 1) rawPath = rawPath.replace(/\/+$/, '');
-  if (rawPath.length > 180 || /[<>"{}\\]/.test(rawPath)) {
-    return { ok: false, error: 'Path halaman tidak valid.' };
-  }
-
-  const segs = rawPath.replace(/^\/+/, '').split('/').filter(Boolean);
-  const rootSeg = segs[0] || '';
-  if (!ALLOWED_ANALYTICS_ROOTS.has(rootSeg)) {
-    return { ok: false, error: 'Path tidak termasuk rute publik museum yang dilacak.' };
-  }
-  const slug = segs[1] && /^[a-zA-Z0-9_-]{1,128}$/.test(segs[1]) ? segs[1] : null;
-  const contentTypeMap = {
-    '': 'home',
-    motifs: slug ? 'motif' : 'catalog',
-    crafts: slug ? 'craft' : 'catalog',
-    cultures: slug ? 'culture' : 'catalog',
-    curatorial: 'curatorial',
-    history: 'history',
-    about: 'about',
-  };
-  const contentType = contentTypeMap[rootSeg] || 'catalog';
-
-  const referrerCategory = ALLOWED_REFERRERS.has(raw.referrerCategory) ? raw.referrerCategory : 'direct';
-  const deviceCategory = ALLOWED_DEVICES.has(raw.deviceCategory) ? raw.deviceCategory : 'desktop';
-  const titleHint = String(raw.titleHint || '').replace(/[<>\r\n\t]/g, ' ').trim().slice(0, 140) || null;
-
-  return {
-    ok: true,
-    data: {
-      sessionId,
-      eventType,
-      path: rawPath || '/',
-      contentType,
-      slug,
-      titleHint,
-      referrerCategory,
-      deviceCategory,
-    },
-  };
-}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -97,6 +12,83 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Appwrite-Project',
   'Content-Type': 'application/json',
 };
+
+const TEAM_ID = process.env.ADMIN_TEAM_ID || 'museum-admins';
+const ACTIVE_ANALYTICS_LIMITS = new Map();
+const ALLOWED_REFERRERS = new Set(['direct', 'internal', 'search', 'social', 'external']);
+const ALLOWED_DEVICES = new Set(['mobile', 'tablet', 'desktop']);
+
+function consumeAnalyticsQuota(key, maxHits, windowMs) {
+  const now = Date.now();
+  if (ACTIVE_ANALYTICS_LIMITS.size > 3000) {
+    for (const [k, stamps] of ACTIVE_ANALYTICS_LIMITS.entries()) {
+      if (stamps.length === 0 || now - stamps[stamps.length - 1] > windowMs) {
+        ACTIVE_ANALYTICS_LIMITS.delete(k);
+      }
+    }
+  }
+  const cutoff = now - windowMs;
+  const stamps = (ACTIVE_ANALYTICS_LIMITS.get(key) || []).filter((t) => t > cutoff);
+  if (stamps.length >= maxHits) {
+    ACTIVE_ANALYTICS_LIMITS.set(key, stamps);
+    return false;
+  }
+  stamps.push(now);
+  ACTIVE_ANALYTICS_LIMITS.set(key, stamps);
+  return true;
+}
+
+function getWitaDateKey(dateObj = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(dateObj);
+}
+
+function sanitizeShortText(val, maxLen) {
+  if (!val || typeof val !== 'string') return '';
+  return val.replace(/[\x00-\x1F\x7F]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+}
+
+function classifyPublicRoute(rawPath) {
+  const cleanOnly = String(rawPath || '/').split('?')[0].split('#')[0].trim();
+  const normalized = cleanOnly === '/' ? '/' : '/' + cleanOnly.replace(/^\/+|\/+$/g, '');
+  if (!normalized.startsWith('/') || normalized.length > 180) return null;
+  if (normalized === '/admin' || normalized.startsWith('/admin/')) return null;
+
+  const segs = normalized === '/' ? [] : normalized.slice(1).split('/');
+  if (segs.length === 0) return { pageKey: '/', contentType: 'home', slug: null, trackPageStat: true };
+
+  const root = segs[0];
+  const slug = segs[1] && /^[a-zA-Z0-9_-]{1,128}$/.test(segs[1]) ? segs[1] : null;
+  if (root === 'motifs') {
+    return slug && segs.length === 2
+      ? { pageKey: `/motifs/${slug}`, contentType: 'motif', slug, trackPageStat: true }
+      : segs.length === 1
+      ? { pageKey: '/motifs', contentType: 'motif', slug: null, trackPageStat: true }
+      : null;
+  }
+  if (root === 'crafts') {
+    return slug && segs.length === 2
+      ? { pageKey: `/crafts/${slug}`, contentType: 'craft', slug, trackPageStat: true }
+      : segs.length === 1
+      ? { pageKey: '/crafts', contentType: 'craft', slug: null, trackPageStat: true }
+      : null;
+  }
+  if (root === 'cultures') {
+    return slug && segs.length === 2
+      ? { pageKey: `/cultures/${slug}`, contentType: 'culture', slug, trackPageStat: true }
+      : segs.length === 1
+      ? { pageKey: '/cultures', contentType: 'culture', slug: null, trackPageStat: true }
+      : null;
+  }
+  if (segs.length === 1 && ['history', 'curatorial', 'about'].includes(root)) {
+    return { pageKey: `/${root}`, contentType: root, slug: null, trackPageStat: true };
+  }
+  return null;
+}
+
+function hashRowId(prefix, val, maxHashLen = 30) {
+  const hex = crypto.createHash('sha256').update(val).digest('hex').slice(0, maxHashLen);
+  return `${prefix}_${hex}`;
+}
 
 // Response Field Whitelists — Never expose createdById, reviewedById, audit notes
 const WHITELISTS = {
@@ -224,45 +216,27 @@ export default async ({ req, res, log, error }) => {
 
   let path = (req.path || '/').trim();
   let method = (req.method || 'GET').toUpperCase();
-  let query = { ...(req.query || {}) };
-  let rawBodyObj = null;
+  let query = req.query || {};
+  let bodyData = {};
 
-  try {
-    if (req.body && typeof req.body === 'object') {
-      rawBodyObj = req.body;
-    } else if (typeof req.body === 'string' && req.body.trim().startsWith('{')) {
-      rawBodyObj = JSON.parse(req.body);
-    }
-  } catch {
-    rawBodyObj = null;
-  }
-
-  if (rawBodyObj) {
-    // Only treat rawBodyObj.path / rawBodyObj.method as RPC routing overrides when NOT an analytics event payload
-    if (typeof rawBodyObj.sessionId !== 'string') {
-      if (typeof rawBodyObj.path === 'string' && rawBodyObj.path) path = rawBodyObj.path;
-      if (typeof rawBodyObj.method === 'string' && rawBodyObj.method) method = rawBodyObj.method.toUpperCase();
-      if (rawBodyObj.query && typeof rawBodyObj.query === 'object') {
-        query = { ...query, ...rawBodyObj.query };
-      }
-    }
-    // Appwrite /executions forwards inner JSON body string if present
-    if (typeof rawBodyObj.body === 'string' && rawBodyObj.body.trim().startsWith('{')) {
-      try {
-        const inner = JSON.parse(rawBodyObj.body);
-        if (inner && typeof inner === 'object') rawBodyObj = inner;
-      } catch {}
+  if (req.body && typeof req.body === 'object') {
+    if (req.body.path) path = req.body.path;
+    if (req.body.method) method = (req.body.method || method).toUpperCase();
+    if (req.body.query) query = { ...query, ...req.body.query };
+    bodyData = req.body.body && typeof req.body.body === 'object' ? req.body.body : req.body;
+  } else if (typeof req.body === 'string' && req.body.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed.path) path = parsed.path;
+      if (parsed.method) method = (parsed.method || method).toUpperCase();
+      if (parsed.query) query = { ...query, ...parsed.query };
+      bodyData = parsed.body && typeof parsed.body === 'object' ? parsed.body : parsed;
+    } catch (e) {
+      // ignore JSON parse error on body
     }
   }
 
-  const [rawPathname, rawQs] = path.split('?');
-  if (rawQs) {
-    const qsParams = new URLSearchParams(rawQs);
-    for (const [k, v] of qsParams.entries()) {
-      if (query[k] === undefined) query[k] = v;
-    }
-  }
-  const cleanPath = rawPathname.replace(/^\/+|\/+$/g, '');
+  const cleanPath = path.replace(/^\/+|\/+$/g, '');
   const segments = cleanPath ? cleanPath.split('/') : [];
   const root = segments[0] || 'health';
   const param = segments[1] || null;
@@ -303,170 +277,190 @@ export default async ({ req, res, log, error }) => {
           '/categories',
           '/contributors',
           '/settings',
-          'POST /analytics/track',
+          '/analytics/track',
         ],
       }, 200, CORS_HEADERS);
     }
 
     // ------------------------------------------------------------------------
-    // 0. PRIVACY-FIRST ANONYMOUS ANALYTICS INGESTION (WRITE-ONLY FROM PUBLIC)
+    // 0. PRIVACY-SAFE VISITOR ANALYTICS INGESTION (POST /analytics/track)
     // ------------------------------------------------------------------------
-    if (root === 'analytics') {
-      if (param !== 'track' || method !== 'POST') {
-        return res.json(
-          { error: 'Data analitik bersifat privat dan hanya dapat dibaca kurator terotentikasi.' },
-          403,
-          CORS_HEADERS
-        );
+    if (root === 'analytics' && param === 'track' && method === 'POST') {
+      if (!apiKey) {
+        return res.json({ error: 'Server analytics configuration incomplete' }, 500, CORS_HEADERS);
       }
 
-      const analyticsInput =
-        rawBodyObj && typeof rawBodyObj.sessionId === 'string'
-          ? rawBodyObj
-          : query;
-      const validated = sanitizeTrackingPayload(analyticsInput);
-      if (!validated.ok) {
-        return res.json({ error: validated.error }, 400, CORS_HEADERS);
+      const rawSessionId = String(bodyData.sessionId || '').trim();
+      if (!/^[a-zA-Z0-9_-]{12,64}$/.test(rawSessionId)) {
+        return res.json({ error: 'Invalid anonymous sessionId' }, 400, CORS_HEADERS);
       }
 
-      const ev = validated.data;
-      const clientIp =
-        String(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || '')
-          .split(',')[0]
-          .trim() || 'unknown';
-      const transientIpKey = crypto.createHash('sha256').update(`${SESSION_RATE_SALT}:${clientIp}`).digest('hex').slice(0, 16);
+      const eventType = bodyData.eventType === 'heartbeat' ? 'heartbeat' : 'pageview';
+      const routeInfo = classifyPublicRoute(bodyData.path || bodyData.pagePath || '/');
+      if (!routeInfo) {
+        return res.json({ error: 'Invalid or non-public path' }, 400, CORS_HEADERS);
+      }
+
+      // Hash client IP strictly in memory for rate limiting (never persisted in TablesDB)
+      const fwdIp = String(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || 'unknown')
+        .split(',')[0]
+        .trim();
+      const ipHash = crypto.createHash('sha256').update(fwdIp).digest('hex').slice(0, 16);
 
       if (
-        !consumeAnalyticsRate(`sess:${ev.sessionId}`, 25, 60_000) ||
-        !consumeAnalyticsRate(`ip:${transientIpKey}`, 90, 60_000)
+        !consumeAnalyticsQuota(`sess:${rawSessionId}`, 40, 60_000) ||
+        !consumeAnalyticsQuota(`ip:${ipHash}`, 120, 60_000)
       ) {
-        return res.json({ error: 'Terlalu banyak event analitik dari sesi ini.' }, 429, CORS_HEADERS);
+        return res.json({ error: 'Rate limit exceeded' }, 429, CORS_HEADERS);
       }
 
-      const nowMs = Date.now();
-      const nowIso = new Date(nowMs).toISOString();
-      const todayKey = getWitaDateKey(nowMs);
+      const refCat = ALLOWED_REFERRERS.has(bodyData.referrerCategory) ? bodyData.referrerCategory : 'direct';
+      const devCat = ALLOWED_DEVICES.has(bodyData.deviceCategory) ? bodyData.deviceCategory : 'desktop';
+      const safeTitle = sanitizeShortText(bodyData.pageTitle || routeInfo.slug || routeInfo.pageKey, 160);
+      const nowObj = new Date();
+      const nowIso = nowObj.toISOString();
+      const dateKey = getWitaDateKey(nowObj);
+      const adminReadPerms = [Permission.read(Role.team(TEAM_ID))];
 
-      let isDedupedPageview = false;
-      if (ev.eventType === 'pageview') {
-        const dedupeKey = `${ev.sessionId}:${ev.path}`;
-        const prevMs = recentPageviewCache.get(dedupeKey) || 0;
-        if (nowMs - prevMs < 45_000) {
-          isDedupedPageview = true;
-        } else {
-          if (recentPageviewCache.size > 4000) {
-            for (const [k, ts] of recentPageviewCache.entries()) {
-              if (nowMs - ts > 60_000) recentPageviewCache.delete(k);
-            }
-          }
-          recentPageviewCache.set(dedupeKey, nowMs);
+      const sessionRowId = hashRowId('vs', rawSessionId, 32);
+      let existingSession = null;
+      try {
+        existingSession = await tablesDB.getRow(DB_ID, 'visitor_sessions', sessionRowId);
+      } catch {}
+
+      let shouldCountPageView = eventType === 'pageview';
+      if (existingSession && shouldCountPageView) {
+        const lastMs = Date.parse(existingSession.lastSeenAt || '');
+        if (
+          existingSession.currentPath === routeInfo.pageKey &&
+          Number.isFinite(lastMs) &&
+          Date.now() - lastMs < 15_000
+        ) {
+          shouldCountPageView = false;
         }
       }
 
-      const shouldCountPageview = ev.eventType === 'pageview' && !isDedupedPageview;
-      let isNewUniqueToday = false;
+      const isNewVisitorToday = !existingSession || existingSession.startedDate !== dateKey;
 
-      const existingSess = await tablesDB.listRows(DB_ID, 'visitor_sessions', [
-        Query.equal('sessionId', ev.sessionId),
-        Query.limit(1),
-      ]);
-      const sessRow = existingSess.rows?.[0];
-
-      if (!sessRow) {
-        isNewUniqueToday = true;
-        await tablesDB.createRow(DB_ID, 'visitor_sessions', ID.unique(), {
-          sessionId: ev.sessionId,
-          currentPath: ev.path,
-          pageTitle: ev.titleHint,
-          referrerCategory: ev.referrerCategory,
-          deviceCategory: ev.deviceCategory,
+      if (existingSession) {
+        await tablesDB.updateRow(DB_ID, 'visitor_sessions', sessionRowId, {
+          currentPath: routeInfo.pageKey,
+          pageTitle: safeTitle || existingSession.pageTitle || null,
           lastSeenAt: nowIso,
-          startedDate: todayKey,
-          pageViewsCount: shouldCountPageview ? 1 : 0,
+          startedDate: dateKey,
+          pageViewsCount: (existingSession.pageViewsCount || 0) + (shouldCountPageView ? 1 : 0),
         });
       } else {
-        if (sessRow.startedDate !== todayKey) {
-          isNewUniqueToday = true;
-        }
-        await tablesDB.updateRow(DB_ID, 'visitor_sessions', sessRow.$id, {
-          currentPath: ev.path,
-          ...(ev.titleHint ? { pageTitle: ev.titleHint } : {}),
-          deviceCategory: ev.deviceCategory,
-          referrerCategory: ev.referrerCategory,
-          lastSeenAt: nowIso,
-          startedDate: todayKey,
-          pageViewsCount: (sessRow.pageViewsCount || 0) + (shouldCountPageview ? 1 : 0),
-        });
-      }
-
-      if (isNewUniqueToday || shouldCountPageview) {
-        const dailyRes = await tablesDB.listRows(DB_ID, 'visitor_daily_stats', [
-          Query.equal('dateKey', todayKey),
-          Query.limit(1),
-        ]);
-        const dailyRow = dailyRes.rows?.[0];
-        const mobileInc = shouldCountPageview && ev.deviceCategory === 'mobile' ? 1 : 0;
-        const desktopInc = shouldCountPageview && ev.deviceCategory !== 'mobile' ? 1 : 0;
-
-        if (!dailyRow) {
-          await tablesDB.createRow(DB_ID, 'visitor_daily_stats', ID.unique(), {
-            dateKey: todayKey,
-            uniqueVisitors: isNewUniqueToday ? 1 : 0,
-            pageViews: shouldCountPageview ? 1 : 0,
-            mobileViews: mobileInc,
-            desktopViews: desktopInc,
-          });
-        } else {
-          await tablesDB.updateRow(DB_ID, 'visitor_daily_stats', dailyRow.$id, {
-            uniqueVisitors: (dailyRow.uniqueVisitors || 0) + (isNewUniqueToday ? 1 : 0),
-            pageViews: (dailyRow.pageViews || 0) + (shouldCountPageview ? 1 : 0),
-            mobileViews: (dailyRow.mobileViews || 0) + mobileInc,
-            desktopViews: (dailyRow.desktopViews || 0) + desktopInc,
-          });
-        }
-      }
-
-      if (shouldCountPageview) {
-        const pageRes = await tablesDB.listRows(DB_ID, 'visitor_page_stats', [
-          Query.equal('pageKey', ev.path),
-          Query.limit(1),
-        ]);
-        const pageRow = pageRes.rows?.[0];
-        if (!pageRow) {
-          await tablesDB.createRow(DB_ID, 'visitor_page_stats', ID.unique(), {
-            pageKey: ev.path,
-            contentType: ev.contentType,
-            slug: ev.slug,
-            titleHint: ev.titleHint,
-            pageViews: 1,
-            lastViewedAt: nowIso,
-          });
-        } else {
-          await tablesDB.updateRow(DB_ID, 'visitor_page_stats', pageRow.$id, {
-            pageViews: (pageRow.pageViews || 0) + 1,
-            lastViewedAt: nowIso,
-            ...(ev.titleHint ? { titleHint: ev.titleHint } : {}),
-          });
-        }
-
-        // Bounded session retention cleanup (~5% opportunistic pass for sessions stale > 48 hours)
-        if (Math.random() < 0.05) {
-          const cutoffIso = new Date(nowMs - 48 * 60 * 60 * 1000).toISOString();
-          const stale = await tablesDB.listRows(DB_ID, 'visitor_sessions', [
-            Query.lessThan('lastSeenAt', cutoffIso),
-            Query.limit(15),
-          ]).catch(() => ({ rows: [] }));
-          for (const oldRow of stale.rows || []) {
-            await tablesDB.deleteRow(DB_ID, 'visitor_sessions', oldRow.$id).catch(() => {});
+        try {
+          await tablesDB.createRow(
+            DB_ID,
+            'visitor_sessions',
+            sessionRowId,
+            {
+              sessionId: rawSessionId,
+              currentPath: routeInfo.pageKey,
+              pageTitle: safeTitle || null,
+              referrerCategory: refCat,
+              deviceCategory: devCat,
+              lastSeenAt: nowIso,
+              startedDate: dateKey,
+              pageViewsCount: shouldCountPageView ? 1 : 0,
+            },
+            adminReadPerms
+          );
+        } catch (createErr) {
+          if (createErr?.code === 409) {
+            await tablesDB.updateRow(DB_ID, 'visitor_sessions', sessionRowId, {
+              currentPath: routeInfo.pageKey,
+              pageTitle: safeTitle || null,
+              lastSeenAt: nowIso,
+              startedDate: dateKey,
+            }).catch(() => {});
           }
         }
       }
 
-      return res.json(
-        { ok: true, counted: shouldCountPageview, deduped: isDedupedPageview },
-        isDedupedPageview ? 202 : 200,
-        CORS_HEADERS
-      );
+      if (shouldCountPageView) {
+        const dailyRowId = `vds_${dateKey}`;
+        let existingDaily = null;
+        try {
+          existingDaily = await tablesDB.getRow(DB_ID, 'visitor_daily_stats', dailyRowId);
+        } catch {}
+
+        if (existingDaily) {
+          await tablesDB.updateRow(DB_ID, 'visitor_daily_stats', dailyRowId, {
+            uniqueVisitors: (existingDaily.uniqueVisitors || 0) + (isNewVisitorToday ? 1 : 0),
+            pageViews: (existingDaily.pageViews || 0) + 1,
+            mobileViews: (existingDaily.mobileViews || 0) + (devCat === 'mobile' ? 1 : 0),
+            desktopViews: (existingDaily.desktopViews || 0) + (devCat !== 'mobile' ? 1 : 0),
+          });
+        } else {
+          try {
+            await tablesDB.createRow(
+              DB_ID,
+              'visitor_daily_stats',
+              dailyRowId,
+              {
+                dateKey,
+                uniqueVisitors: 1,
+                pageViews: 1,
+                mobileViews: devCat === 'mobile' ? 1 : 0,
+                desktopViews: devCat !== 'mobile' ? 1 : 0,
+              },
+              adminReadPerms
+            );
+          } catch {}
+        }
+
+        if (routeInfo.trackPageStat) {
+          const pageRowId = hashRowId('vps', routeInfo.pageKey, 30);
+          let existingPage = null;
+          try {
+            existingPage = await tablesDB.getRow(DB_ID, 'visitor_page_stats', pageRowId);
+          } catch {}
+
+          if (existingPage) {
+            await tablesDB.updateRow(DB_ID, 'visitor_page_stats', pageRowId, {
+              titleHint: safeTitle || existingPage.titleHint || null,
+              pageViews: (existingPage.pageViews || 0) + 1,
+              lastViewedAt: nowIso,
+            });
+          } else {
+            try {
+              await tablesDB.createRow(
+                DB_ID,
+                'visitor_page_stats',
+                pageRowId,
+                {
+                  pageKey: routeInfo.pageKey,
+                  contentType: routeInfo.contentType,
+                  slug: routeInfo.slug,
+                  titleHint: safeTitle || null,
+                  pageViews: 1,
+                  lastViewedAt: nowIso,
+                },
+                adminReadPerms
+              );
+            } catch {}
+          }
+        }
+
+        // Opportunistic 30-day session retention purge (~5% of pageviews)
+        if (Math.random() < 0.05) {
+          const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+          try {
+            const stale = await tablesDB.listRows(DB_ID, 'visitor_sessions', [
+              Query.lessThan('lastSeenAt', cutoff30d),
+              Query.limit(25),
+            ]);
+            for (const row of stale.rows || []) {
+              await tablesDB.deleteRow(DB_ID, 'visitor_sessions', row.$id).catch(() => {});
+            }
+          } catch {}
+        }
+      }
+
+      return res.json({ accepted: true, countedPageView: shouldCountPageView, eventType }, 200, CORS_HEADERS);
     }
 
     // ------------------------------------------------------------------------
